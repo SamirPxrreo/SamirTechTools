@@ -1,0 +1,80 @@
+{
+  "name": "samirtechtools",
+  "version": "1.0.0",
+  "description": "SamirTechTools - Centro de diagnóstico y mantenimiento informático",
+  "type": "module",
+  "main": "electron/main.cjs",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "preview": "vite preview",
+    "electron:dev": "concurrently \"vite\" \"wait-on http://localhost:5173 && electron .\"",
+    "electron:build": "vite build && electron-builder",
+    "electron:portable": "vite build && electron-builder --win portable",
+    "electron:installer": "vite build && electron-builder --win nsis"
+  },
+  "build": {
+    "appId": "com.samirtechtools.app",
+    "productName": "SamirTechTools",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "dist/**/*",
+      "electron/**/*"
+    ],
+    "win": {
+      "target": [
+        { "target": "nsis", "arch": ["x64"] },
+        { "target": "portable", "arch": ["x64"] }
+      ],
+      "icon": "public/icon.png",
+      "signAndEditExecutable": false
+    },
+    "extraResources": [
+      {
+        "from": "resources/defender-control",
+        "to": "defender-control"
+      }
+    ],
+    "portable": {
+      "artifactName": "SamirTechTools-Portable-${version}.exe",
+      "unpackDirName": "SamirTechTools"
+    },
+    "nsis": {
+      "oneClick": true,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": false,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "SamirTechTools",
+      "artifactName": "SamirTechTools-Setup-${version}.exe",
+      "deleteAppDataOnUninstall": false
+    }
+  },
+  "dependencies": {
+    "lucide-react": "^0.294.0",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "react-router-dom": "^6.20.0",
+    "systeminformation": "^5.21.0"
+  },
+  "devDependencies": {
+    "@types/react": "^18.2.37",
+    "@types/react-dom": "^18.2.15",
+    "@vitejs/plugin-react": "^4.2.0",
+    "autoprefixer": "^10.4.16",
+    "concurrently": "^8.2.2",
+    "electron": "^28.3.3",
+    "electron-builder": "^24.13.3",
+    "postcss": "^8.4.31",
+    "tailwindcss": "^3.3.5",
+    "typescript": "^5.2.2",
+    "vite": "^5.0.0",
+    "wait-on": "^7.2.0"
+  },
+  "allowScripts": {
+    "electron@28.3.3": true,
+    "esbuild@0.21.5": true
+  }
+}
