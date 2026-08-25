@@ -3,77 +3,121 @@
 Aplicación de escritorio para técnicos de soporte informático. Centro de diagnóstico, mantenimiento y herramientas para Windows.
 
 ![Stack](https://img.shields.io/badge/Electron-React-TypeScript-blue)
+![Release](https://img.shields.io/github/v/release/SamirPxrreo/SamirTechTools)
 
-## Estructura del proyecto
+---
+
+## 🚀 Instalación rápida (un solo comando)
+
+Abre PowerShell y pega esto — descarga la última versión y ejecuta la app automáticamente:
+
+```powershell
+irm https://raw.githubusercontent.com/SamirPxrreo/SamirTechTools/main/get.ps1 | iex
+```
+
+**¿Qué hace exactamente?**
+1. Consulta la última versión publicada en [Releases](https://github.com/SamirPxrreo/SamirTechTools/releases)
+2. Descarga el portable (si ya lo descargó antes, usa el cache y no re-descarga)
+3. Lo extrae y ejecuta SamirTechTools
+
+> Requiere internet solo la primera vez. La app en sí funciona offline.
+
+---
+
+## 📦 Descargas manuales
+
+Ve a la sección [Releases](https://github.com/SamirPxrreo/SamirTechTools/releases) y elige:
+
+| Archivo | Qué es | Cuándo usarlo |
+|---|---|---|
+| `SamirTechTools-Setup-x.x.x.exe` | **Instalador** — se instala en el equipo con accesos directos (Escritorio + Menú Inicio) y aparece en "Agregar o quitar programas" | Para tu PC o PCs de clientes que usarán la app seguido |
+| `SamirTechTools-x.x.x-Portable.zip` | **Portable** — solo descomprime y ejecuta, no instala nada | Para llevar en USB y usar en cualquier PC sin dejar rastro |
+
+---
+
+## 🛠️ Funciones
+
+| Módulo | Descripción |
+|---|---|
+| **Diagnóstico** | CPU, RAM, GPU, discos, red y Windows en tiempo real + reporte en TXT |
+| **Windows** | SFC, DISM, CHKDSK, Windows Defender (panel integrado), reparación de Defender |
+| **Activación** | Abre Massgrave (MAS) — Windows y Office, eliges el método en su menú |
+| **Office** | Instalación **Online** (365/2024/2021/2019 con XML generado automáticamente) y **Offline** (ISO descargada y montada automáticamente), activación y reparación |
+| **Navegadores** | Chrome, Edge, Firefox, Opera, Brave — descarga e instalación |
+| **Drivers** | Detección por categoría (GPU, audio, red, chipset...) |
+| **Utilidades** | Limpieza de temporales, info del sistema, servicios, red |
+| **ChrisTitusTech** | Ejecuta Winutil al vuelo o descarga `winutil.ps1` para usarlo offline |
+| **Desinstalador** | Multi-selección + eliminación total de rastros: carpetas, registro, servicios, inicio automático y accesos directos |
+| **Logs** | Registro de actividad en pantalla + guardado en `%APPDATA%\SamirTechTools\logs` |
+
+---
+
+## 💻 Desarrollo
+
+### Requisitos
+- Node.js 18+ ([nodejs.org](https://nodejs.org))
+
+### Ejecutar en modo desarrollo
+```powershell
+npm install           # una sola vez
+npm run electron:dev  # abre la app con hot-reload
+```
+
+### Compilar
+```powershell
+npm run electron:installer  # Instalador NSIS
+npm run electron:portable   # Portable
+npm run electron:build      # Ambos
+```
+
+Los ejecutables quedan en `release/`.
+
+---
+
+## 📁 Estructura del proyecto
 
 ```
 SamirTechTools/
 ├── electron/               # Proceso principal de Electron
-│   ├── main.cjs            #   IPC, PowerShell, descargas, ISOs
+│   ├── main.cjs            #   IPC, PowerShell, descargas con progreso, ISOs
 │   └── preload.cjs         #   Context bridge (seguridad)
 ├── src/                    # Interfaz (React + TypeScript)
 │   ├── config/
 │   │   └── constants.ts    # ★ URLs, rutas y XML de Office centralizados
-│   ├── components/         # Componentes reutilizables
-│   │   ├── ToolCard.tsx        # Tarjeta de herramienta
-│   │   ├── Sidebar.tsx         # Navegación lateral
-│   │   ├── Header.tsx          # Barra superior
-│   │   └── ...
-│   ├── pages/              # Una página por sección
-│   │   ├── Dashboard.tsx       # Diagnóstico del equipo
-│   │   ├── WindowsPage.tsx     # SFC/DISM/Defender/Activación
-│   │   ├── OfficePage.tsx      # Instalar/activar/reparar Office
-│   │   ├── BrowsersPage.tsx    # Navegadores
-│   │   ├── AdobePage.tsx       # Adobe
-│   │   ├── DriversPage.tsx     # Drivers
-│   │   ├── UtilitiesPage.tsx   # Utilidades
-│   │   ├── NetworkPage.tsx     # Red
-│   │   ├── ChrisTitusPage.tsx  # Winutil de ChrisTitusTech
-│   │   ├── UninstallerPage.tsx # Desinstalador con limpieza profunda
-│   │   └── SettingsPage.tsx    # Configuración
+│   ├── components/         # Componentes reutilizables (ToolCard, Sidebar...)
+│   ├── pages/              # Una página por sección (11 páginas)
 │   ├── context/            # Estado global (logs)
 │   ├── types/              # Interfaces TypeScript
 │   └── utils/              # Helpers de formato
 ├── resources/              # Binarios externos incluidos en el instalador
 │   └── defender-control/   #   dControl.exe (Sordum v2.1)
 ├── docs/                   # Documentación
-│   ├── CONTEXTO.md         # ★ Contexto completo para IA (leer primero)
+│   ├── CONTEXTO.md         # ★ Contexto técnico completo (leer antes de modificar)
 │   └── README.md           # Este archivo
-├── dist/                   # Build compilado (generado)
+├── get.ps1                 # Lanzador web (instalación con un comando)
+├── dist/                   # Build compilado (generado, no editar)
 └── release/                # Ejecutables finales (generado)
 ```
 
-> **★ Para IAs:** leer `docs/CONTEXTO.md` antes de modificar el código — contiene arquitectura,
-> decisiones técnicas importantes y solución de problemas conocidos.
+> **★ Para IAs / nuevos desarrolladores:** leer `docs/CONTEXTO.md` antes de modificar el código —
+> contiene la arquitectura, decisiones técnicas importantes y solución de problemas conocidos.
 
-## Desarrollo
+---
 
-```powershell
-npm install          # una sola vez
-npm run electron:dev # desarrollo con hot-reload
-```
+## 📝 Publicar una nueva versión
 
-## Compilación
+1. Compilar: `npm run electron:build`
+2. Subir código: `git add -A && git commit -m "..." && git push`
+3. Crear release en GitHub con los nuevos `.exe` adjuntos
 
-```powershell
-npm run electron:installer  # Instalador NSIS (release\SamirTechTools-Setup-x.x.x.exe)
-npm run electron:portable   # Portable (release\SamirTechTools-Portable-x.x.x.exe)
-npm run electron:build      # Ambos
-```
+---
 
-## Funciones
+## ⚠️ Notas
 
-| Módulo | Descripción |
-|---|---|
-| Diagnóstico | CPU, RAM, GPU, discos, red y Windows en tiempo real |
-| Windows | SFC, DISM, CHKDSK, Defender Control, activación MAS |
-| Office | Instalación Online (4 versiones) / Offline ISO / activación / reparación |
-| Navegadores | Chrome, Edge, Firefox, Opera, Brave |
-| Drivers | Detección por categoría |
-| Utilidades | Limpieza, sistema, red |
-| ChrisTitusTech | Winutil integrado |
-| Desinstalador | Multi-selección + eliminación de rastros (registro, carpetas, servicios) |
+- Algunas funciones requieren **ejecutar como administrador** (SFC, DISM, Defender, activación)
+- La activación usa herramientas de terceros ([Massgrave](https://massgrave.dev), [ChrisTitus Tech](https://christitus.com)) que se descargan al vuelo — siempre la última versión
+- Windows Defender puede marcar falsos positivos con las herramientas de activación/Defender Control; son herramientas conocidas de código abierto
 
-## Licencia
+## 📄 Licencia
 
 Uso personal del autor.
