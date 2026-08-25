@@ -1,9 +1,9 @@
-﻿import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { FileText, Download, Wrench, Key, Globe, HardDrive, Shield, CheckCircle, Loader } from 'lucide-react';
 import { ToolCard, ConsoleOutput, ConfirmModal, ProgressBar } from '../components';
 import { useLogs } from '../context/LogContext';
 import { DownloadProgress } from '../types';
-import { PATHS, OFFICE } from '../config/constants';
+import { PATHS, OFFICE, TOOLS } from '../config/constants';
 
 const OFFICE_DIR = PATHS.OFFICE_DIR;
 const SETUP_URL = OFFICE.SETUP_URL;
@@ -179,22 +179,20 @@ export function OfficePage() {
     });
   };
 
-  // ACTIVAR WINDOWS + OFFICE (MAS unattended: HWID para Windows, Ohook para Office)
-  const MAS_CMD = 'powershell -NoProfile -ExecutionPolicy Bypass -Command "& ([ScriptBlock]::Create((irm https://get.activated.win))) /HWID /Ohook"';
-
+  // ACTIVAR: abre el menú interactivo de MAS (Massgrave)
   const activateAll = (fromPage: string) => {
     setConfirmModal({
       open: true,
-      title: 'Activar Windows y Office',
-      message: 'Se ejecutarÃ¡ Microsoft Activation Scripts (MAS) en modo silencioso:\n\nâ€¢ Windows â†’ mÃ©todo HWID (licencia digital permanente)\nâ€¢ Office â†’ mÃ©todo Ohook\n\nRequiere internet. Â¿Continuar?',
+      title: 'Abrir Massgrave (MAS)',
+      message: 'Se abrirá Microsoft Activation Scripts en una ventana de PowerShell como administrador.\n\nDentro del menú podrás elegir el método de activación (HWID, Ohook, TSforge, KMS...).\n\nRequiere internet. ¿Continuar?',
       onConfirm: () => {
         setConfirmModal({ ...confirmModal, open: false });
         setLoading(true);
         setOutput('');
-        log(fromPage, 'Activando', 'Ejecutando MAS (/HWID /Ohook) - Windows + Office', 'info');
-        window.electronAPI.runCommand(MAS_CMD).then(r => {
+        log(fromPage, 'MAS', 'Abriendo menú interactivo (get.activated.win)', 'info');
+        window.electronAPI.runCommand(TOOLS.MAS_CMD).then(r => {
           setOutput(r.output);
-          log('ActivaciÃ³n', r.success ? 'Completado' : 'Error', r.success ? 'Windows y Office activados' : String(r.output), r.success ? 'success' : 'error');
+          log('MAS', r.success ? 'Abierto' : 'Error', r.success ? 'Ventana abierta. Elige el método en el menú.' : String(r.output), r.success ? 'success' : 'error');
           setLoading(false);
         });
       }

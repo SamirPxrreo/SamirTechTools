@@ -101,8 +101,9 @@ export const OFFICE = {
 
 // --- Herramientas externas ---
 export const TOOLS = {
+  // MAS interactivo: abre el menú para elegir método manualmente
   MAS_CMD:
-    'powershell -NoProfile -ExecutionPolicy Bypass -Command "& ([ScriptBlock]::Create((irm https://get.activated.win))) /HWID /Ohook"',
+    'powershell -NoProfile -ExecutionPolicy Bypass -Command "Start-Process powershell -Verb RunAs -ArgumentList \'-NoProfile -ExecutionPolicy Bypass -Command irm https://get.activated.win | iex\'"',
   CTT_CMD:
     'powershell -NoProfile -ExecutionPolicy Bypass -Command "Start-Process powershell -Verb RunAs -ArgumentList \'-NoProfile -ExecutionPolicy Bypass -Command irm https://christitus.com/win | iex\'"',
   URLS: {

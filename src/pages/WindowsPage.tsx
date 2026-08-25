@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Shield, ShieldOff, Search, RefreshCw, HardDrive, AlertTriangle, KeyRound, Wrench } from 'lucide-react';
 import { ToolCard, ConsoleOutput, ConfirmModal } from '../components';
 import { useLogs } from '../context/LogContext';
+import { TOOLS } from '../config/constants';
 
 export function WindowsPage() {
   const { addLog } = useLogs();
@@ -11,7 +12,7 @@ export function WindowsPage() {
     open: false, tool: '', title: '', message: '',
   });
 
-  const MAS_CMD = 'powershell -NoProfile -ExecutionPolicy Bypass -Command "& ([ScriptBlock]::Create((irm https://get.activated.win))) /HWID /Ohook"';
+  const { MAS_CMD } = TOOLS;
 
   // Windows Defender (via defender-control: TrustedInstaller + rename de drivers)
   const [defenderEnabled, setDefenderEnabled] = useState<boolean | null>(null);
@@ -41,7 +42,7 @@ export function WindowsPage() {
         '"'
       );
       const [status, startType, proc, oldFile] = s.output.trim().toLowerCase().split('|');
-      // Si el servicio está parado/deshabilitado o MsMpEng no corre → deshabilitado
+      // Si el servicio estÃ¡ parado/deshabilitado o MsMpEng no corre â†’ deshabilitado
       if (oldFile === 'true' || proc === 'stopped' || status === 'stopped' || status === '' || startType === 'disabled') {
         setDefenderEnabled(false);
         return;
@@ -76,7 +77,7 @@ export function WindowsPage() {
     addLog('Windows', 'Defender Control', 'Abriendo dControl.exe (Sordum)', 'info');
     window.electronAPI.defenderTool('open').then(r => {
       if (r.success) {
-        addLog('Windows', 'Defender Control', 'Abierto. Dentro del programa presiona el botón para Activar o Desactivar.', 'success');
+        addLog('Windows', 'Defender Control', 'Abierto. Dentro del programa presiona el botÃ³n para Activar o Desactivar.', 'success');
         // Refrescar estado cuando el usuario cierre el programa
         setTimeout(checkDefender, 8000);
       } else {
@@ -91,7 +92,7 @@ export function WindowsPage() {
       open: true,
       tool: 'defender-repair',
       title: 'Reparar Windows Defender',
-      message: 'Se ejecutará DISM RestoreHealth + SFC /scannow como administrador para reparar los componentes dañados de Defender.\n\n⏱️ Puede tardar 15-30 minutos. Reinicia después.\n\n¿Continuar?',
+      message: 'Se ejecutarÃ¡ DISM RestoreHealth + SFC /scannow como administrador para reparar los componentes daÃ±ados de Defender.\n\nâ±ï¸ Puede tardar 15-30 minutos. Reinicia despuÃ©s.\n\nÂ¿Continuar?',
     });
   };
 
@@ -99,8 +100,8 @@ export function WindowsPage() {
     setConfirmModal({
       open: true,
       tool: 'mas',
-      title: 'Activar Windows y Office',
-      message: 'Se ejecutará Microsoft Activation Scripts (MAS) en modo silencioso:\n\n• Windows → método HWID (licencia digital permanente)\n• Office → método Ohook\n\nRequiere internet. ¿Continuar?',
+      title: 'Abrir Massgrave (MAS)',
+      message: 'Se abrirá Microsoft Activation Scripts en una ventana de PowerShell como administrador.\n\nDentro del menú podrás elegir el método de activación (HWID, Ohook, TSforge, KMS...).\n\nRequiere internet. ¿Continuar?',
     });
   };
 
@@ -110,15 +111,15 @@ export function WindowsPage() {
     if (tool === 'defender-repair') {
       setLoading(true);
       setOutput('');
-      addLog('Windows', 'Reparación Defender', 'DISM RestoreHealth + SFC', 'info');
+      addLog('Windows', 'ReparaciÃ³n Defender', 'DISM RestoreHealth + SFC', 'info');
       try {
         const r = await window.electronAPI.runCommand(
           'powershell -NoProfile -ExecutionPolicy Bypass -Command "Start-Process cmd -Verb RunAs -ArgumentList \'/k DISM /Online /Cleanup-Image /RestoreHealth && sfc /scannow\'"'
         );
-        setOutput(r.output || 'Ventana de reparación abierta. Espera a que termine (15-30 min) y reinicia.');
-        addLog('Windows', 'Reparación Defender', 'Proceso lanzado. Reinicia al terminar.', r.success ? 'success' : 'error');
+        setOutput(r.output || 'Ventana de reparaciÃ³n abierta. Espera a que termine (15-30 min) y reinicia.');
+        addLog('Windows', 'ReparaciÃ³n Defender', 'Proceso lanzado. Reinicia al terminar.', r.success ? 'success' : 'error');
       } catch (err) {
-        addLog('Windows', 'Reparación Defender - Error', String(err), 'error');
+        addLog('Windows', 'ReparaciÃ³n Defender - Error', String(err), 'error');
       }
       setLoading(false);
       return;
@@ -126,14 +127,14 @@ export function WindowsPage() {
     if (tool === 'mas') {
       setLoading(true);
       setOutput('');
-      addLog('Windows', 'Activación MAS - Iniciado', '/HWID /Ohook', 'info');
+      addLog('Windows', 'MAS', 'Abriendo menú interactivo (get.activated.win)', 'info');
       try {
         const result = await window.electronAPI.runCommand(MAS_CMD);
         setOutput(result.output);
-        addLog('Windows', 'Activación MAS - Completado', result.success ? 'Windows y Office activados' : String(result.output), result.success ? 'success' : 'error');
+        addLog('Windows', 'MAS', result.success ? 'Ventana abierta. Elige el método en el menú.' : String(result.output), result.success ? 'success' : 'error');
       } catch (err) {
         setOutput(`Error: ${err}`);
-        addLog('Windows', 'Activación MAS - Error', String(err), 'error');
+        addLog('Windows', 'MAS - Error', String(err), 'error');
       }
       setLoading(false);
       return;
@@ -154,7 +155,7 @@ export function WindowsPage() {
         open: true,
         tool,
         title: `Ejecutar ${label}`,
-        message: `¿Está seguro de ejecutar ${label}? Esta operación puede requerir permisos de administrador.`,
+        message: `Â¿EstÃ¡ seguro de ejecutar ${label}? Esta operaciÃ³n puede requerir permisos de administrador.`,
       });
       return;
     }
@@ -168,7 +169,7 @@ export function WindowsPage() {
     try {
       const result = await window.electronAPI.executeTool(tool);
       setOutput(result.output);
-      addLog('Windows', `${label} - Completado`, result.success ? 'Éxito' : 'Error', result.success ? 'success' : 'error');
+      addLog('Windows', `${label} - Completado`, result.success ? 'Ã‰xito' : 'Error', result.success ? 'success' : 'error');
     } catch (err) {
       setOutput(`Error: ${err}`);
       addLog('Windows', `${label} - Error`, String(err), 'error');
@@ -180,7 +181,7 @@ export function WindowsPage() {
     <div className="space-y-6 animate-fade-in">
       <div>
         <h1 className="text-xl font-bold text-white">Herramientas de Windows</h1>
-        <p className="text-xs text-dark-400 mt-1">Reparación, mantenimiento y configuración del sistema</p>
+        <p className="text-xs text-dark-400 mt-1">ReparaciÃ³n, mantenimiento y configuraciÃ³n del sistema</p>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
@@ -201,7 +202,7 @@ export function WindowsPage() {
         <ToolCard
           icon={<Search size={20} />}
           title="DISM - Verificar imagen"
-          description="Verifica el estado de la imagen de Windows en busca de corrupción"
+          description="Verifica el estado de la imagen de Windows en busca de corrupciÃ³n"
           status="info"
           statusText="Disponible"
           accentColor="green"
@@ -253,7 +254,7 @@ export function WindowsPage() {
         <ToolCard
           icon={<AlertTriangle size={20} />}
           title="Windows Update"
-          description="Abrir la configuración de Windows Update"
+          description="Abrir la configuraciÃ³n de Windows Update"
           status="info"
           statusText="Disponible"
           accentColor="cyan"
@@ -295,7 +296,7 @@ export function WindowsPage() {
                 )}
               </div>
               <p className="text-[11px] text-dark-400 mt-1">
-                Panel de Defender Control integrado. Dentro del programa, presiona el botón grande para Activar o Desactivar.
+                Panel de Defender Control integrado. Dentro del programa, presiona el botÃ³n grande para Activar o Desactivar.
               </p>
               <div className="flex gap-2 mt-3 flex-wrap">
                 <button
