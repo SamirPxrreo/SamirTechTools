@@ -16,21 +16,21 @@ interface ToolCardProps {
 }
 
 const statusColors = {
-  ok: 'bg-green-500/10 text-green-400 border-green-500/20',
-  warning: 'bg-yellow-500/10 text-yellow-400 border-yellow-500/20',
-  error: 'bg-red-500/10 text-red-400 border-red-500/20',
-  info: 'bg-blue-500/10 text-blue-400 border-blue-500/20',
+  ok: 'bg-green-500/15 text-green-300 border border-green-500/25',
+  warning: 'bg-yellow-500/15 text-yellow-300 border border-yellow-500/25',
+  error: 'bg-red-500/15 text-red-300 border border-red-500/25',
+  info: 'bg-primary-500/15 text-primary-300 border border-primary-500/25',
 };
 
-const accentBorders: Record<string, string> = {
-  blue: 'border-l-blue-500',
-  green: 'border-l-green-500',
-  yellow: 'border-l-yellow-500',
-  red: 'border-l-red-500',
-  purple: 'border-l-purple-500',
-  cyan: 'border-l-cyan-500',
-  orange: 'border-l-orange-500',
-  pink: 'border-l-pink-500',
+const accentGlow: Record<string, string> = {
+  blue: 'text-blue-400 bg-blue-500/10 ring-blue-500/20',
+  green: 'text-green-400 bg-green-500/10 ring-green-500/20',
+  yellow: 'text-yellow-400 bg-yellow-500/10 ring-yellow-500/20',
+  red: 'text-red-400 bg-red-500/10 ring-red-500/20',
+  purple: 'text-purple-400 bg-purple-500/10 ring-purple-500/20',
+  cyan: 'text-cyan-400 bg-cyan-500/10 ring-cyan-500/20',
+  orange: 'text-orange-400 bg-orange-500/10 ring-orange-500/20',
+  pink: 'text-pink-400 bg-pink-500/10 ring-pink-500/20',
 };
 
 export function ToolCard({
@@ -48,21 +48,19 @@ export function ToolCard({
   children,
 }: ToolCardProps) {
   return (
-    <div
-      className={`bg-dark-800/80 border border-dark-700 rounded-xl p-5 hover:border-dark-600 transition-all duration-300 hover:shadow-lg hover:shadow-black/20 border-l-4 ${accentBorders[accentColor] || 'border-l-blue-500'}`}
-    >
-      <div className="flex items-start justify-between mb-3">
-        <div className="flex items-center gap-3">
-          <div className={`p-2 rounded-lg bg-dark-700/50 text-${accentColor}-400`}>
+    <div className="glass rounded-2xl p-5 card-hover flex flex-col">
+      <div className="flex items-start justify-between gap-3 mb-3">
+        <div className="flex items-center gap-3 min-w-0">
+          <div className={`p-2.5 rounded-xl ring-1 flex-shrink-0 ${accentGlow[accentColor] || accentGlow.blue}`}>
             {icon}
           </div>
-          <div>
-            <h3 className="text-sm font-semibold text-white">{title}</h3>
-            {description && <p className="text-xs text-dark-400 mt-0.5">{description}</p>}
+          <div className="min-w-0">
+            <h3 className="text-sm font-semibold text-white leading-snug">{title}</h3>
+            {description && <p className="text-[11px] text-dark-400 mt-1 leading-relaxed">{description}</p>}
           </div>
         </div>
         {status && statusText && (
-          <span className={`text-[10px] px-2 py-1 rounded-full border ${statusColors[status]}`}>
+          <span className={`text-[9px] px-2 py-1 rounded-full font-semibold tracking-wide uppercase flex-shrink-0 ${statusColors[status]}`}>
             {statusText}
           </span>
         )}
@@ -71,12 +69,12 @@ export function ToolCard({
       {children && <div className="mb-4">{children}</div>}
 
       {(primaryAction || secondaryAction) && (
-        <div className="flex gap-2 mt-auto">
+        <div className="flex gap-2 mt-auto pt-2 flex-wrap">
           {primaryAction && (
             <button
               onClick={primaryOnClick}
               disabled={loading}
-              className="px-4 py-2 bg-primary-600 hover:bg-primary-700 active:bg-primary-800 text-white text-xs font-medium rounded-lg transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+              className="px-4 py-2 bg-gradient-to-r from-primary-600 to-purple-600 hover:from-primary-500 hover:to-purple-500 active:opacity-90 text-white text-xs font-semibold rounded-xl transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 shadow-glow"
             >
               {loading && (
                 <svg className="animate-spin h-3 w-3" viewBox="0 0 24 24">
@@ -90,7 +88,7 @@ export function ToolCard({
           {secondaryAction && (
             <button
               onClick={secondaryOnClick}
-              className="px-4 py-2 bg-dark-700 hover:bg-dark-600 active:bg-dark-500 text-dark-200 text-xs font-medium rounded-lg transition-all duration-200"
+              className="px-4 py-2 bg-white/5 hover:bg-white/10 border border-white/10 text-dark-200 text-xs font-medium rounded-xl transition-all duration-200"
             >
               {secondaryAction}
             </button>

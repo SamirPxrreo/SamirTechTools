@@ -118,7 +118,12 @@ function AppContent() {
   };
 
   return (
-    <div className="h-screen flex flex-col bg-dark-950 text-dark-50 overflow-hidden">
+    <div className="h-screen flex flex-col bg-dark-950 text-dark-50 overflow-hidden relative">
+      {/* Fondo decorativo */}
+      <div className="absolute inset-0 pointer-events-none">
+        <div className="absolute -top-32 -right-24 w-[420px] h-[420px] rounded-full bg-primary-600/10 blur-3xl animate-float" />
+        <div className="absolute -bottom-40 -left-24 w-[380px] h-[380px] rounded-full bg-purple-600/8 blur-3xl animate-float" style={{ animationDelay: '2s' }} />
+      </div>
       <Header
         computerName={computerName}
         username={username}
@@ -132,7 +137,7 @@ function AppContent() {
           collapsed={sidebarCollapsed}
           onToggleCollapse={() => setSidebarCollapsed(!sidebarCollapsed)}
         />
-        <main className="flex-1 overflow-y-auto p-6">
+        <main className="flex-1 overflow-y-auto p-4 md:p-6 relative z-[1]">
           {loading && currentPage === 'dashboard' ? (
             <div className="flex flex-col items-center justify-center h-full animate-fade-in">
               <div className="relative">
