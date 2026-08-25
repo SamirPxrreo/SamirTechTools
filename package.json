@@ -16,6 +16,9 @@
   "build": {
     "appId": "com.samirtechtools.app",
     "productName": "SamirTechTools",
+    "compression": "maximum",
+    "electronLanguages": ["es-MX", "es", "en-US"],
+    "asarUnpack": [],
     "directories": {
       "output": "release"
     },
@@ -49,7 +52,8 @@
       "createStartMenuShortcut": true,
       "shortcutName": "SamirTechTools",
       "artifactName": "SamirTechTools-Setup-${version}.exe",
-      "deleteAppDataOnUninstall": false
+      "deleteAppDataOnUninstall": false,
+      "differentialPackage": false
     }
   },
   "dependencies": {
