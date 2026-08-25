@@ -180,6 +180,20 @@ ipcMain.handle('get-windows-info', async () => {
         else if (key === 'RegisteredUser') info.registeredUser = val;
       }
     }
+    // Motherboard info
+    const mb = await ps('Get-CimInstance Win32_BaseBoard | Select-Object Manufacturer, Product, Version, SerialNumber | Format-List');
+    const mbLines = mb.output.trim().split('\n');
+    for (const line of mbLines) {
+      const eq = line.indexOf(':');
+      if (eq > 0) {
+        const key = line.substring(0, eq).trim();
+        const val = line.substring(eq + 1).trim();
+        if (key === 'Manufacturer') info.boardManufacturer = val;
+        else if (key === 'Product') info.boardProduct = val;
+        else if (key === 'Version') info.boardVersion = val;
+        else if (key === 'SerialNumber') info.boardSerial = val;
+      }
+    }
   } catch {}
   return info;
 });
@@ -558,11 +572,11 @@ ipcMain.handle('unmount-iso', async (event, isoPath) => {
 ipcMain.handle('get-drivers', async () => {
   let drivers = [];
   try {
-    const r = await ps('Get-CimInstance Win32_PnSignedDriver | Where-Object {$_.DeviceName} | ForEach-Object { $_.DeviceName + "|" + $_.Manufacturer + "|" + $_.DriverVersion + "|" + $_.DriverDate }');
+    const r = await ps('Get-CimInstance Win32_PnPSignedDriver | Where-Object {$_.DeviceName -and $_.DeviceName -notlike "Unknown"} | Sort-Object DeviceName -Unique | ForEach-Object { $_.DeviceName + "|" + $_.Manufacturer + "|" + $_.DriverVersion + "|" + $_.DriverDate + "|" + $_.InfName }');
     for (const line of r.output.trim().split('\n')) {
       const p = line.split('|');
       if (p.length >= 4) {
-        drivers.push({ name: (p[0] || 'Unknown').trim(), manufacturer: (p[1] || 'Unknown').trim(), version: (p[2] || 'Unknown').trim(), date: (p[3] || 'Unknown').trim(), status: 'OK' });
+        drivers.push({ name: (p[0] || 'Unknown').trim(), manufacturer: (p[1] || 'Unknown').trim(), version: (p[2] || 'Unknown').trim(), date: (p[3] || 'Unknown').trim(), inf: (p[4] || '').trim(), status: 'OK' });
       }
     }
   } catch {}

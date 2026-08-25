@@ -19,19 +19,9 @@ export function WindowsPage() {
   const [tamperProtected, setTamperProtected] = useState<boolean | null>(null);
   const [defenderLoading, setDefenderLoading] = useState(false);
 
-  const checkDefender = useCallback(async () => {
+const checkDefender = useCallback(async () => {
     try {
-      const r = await window.electronAPI.defenderTool('status');
-      const out = (r.output || '').toLowerCase();
-      if (out) {
-        // Parsear salida de disable-defender.exe -c
-        const mpEng = out.includes('msmpeng') && (out.includes('not running') || out.includes('stopped'));
-        if (out.includes('disabled') || out.includes('currently off') || mpEng) { setDefenderEnabled(false); return; }
-        if (out.includes('enabled') || out.includes('currently on')) { setDefenderEnabled(true); return; }
-      }
-    } catch { /* continuar con fallbacks */ }
-
-    try {
+      // Usar solo métodos de detección del sistema (dControl.exe no tiene CLI de status)
       // Fallback 1: servicio WinDefend + proceso MsMpEng + binarios renombrados
       const s = await window.electronAPI.runCommand(
         'powershell -NoProfile -Command "' +
@@ -42,7 +32,7 @@ export function WindowsPage() {
         '"'
       );
       const [status, startType, proc, oldFile] = s.output.trim().toLowerCase().split('|');
-      // Si el servicio estÃ¡ parado/deshabilitado o MsMpEng no corre â†’ deshabilitado
+      // Si el servicio está parado/deshabilitado o MsMpEng no corre → deshabilitado
       if (oldFile === 'true' || proc === 'stopped' || status === 'stopped' || status === '' || startType === 'disabled') {
         setDefenderEnabled(false);
         return;

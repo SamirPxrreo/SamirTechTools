@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { FileText, Download, Wrench, Key, Globe, HardDrive, Shield, CheckCircle, Loader } from 'lucide-react';
+import { FileText, Download, Wrench, Key, Globe, HardDrive, Shield, CheckCircle, Loader, Trash2 } from 'lucide-react';
 import { ToolCard, ConsoleOutput, ConfirmModal, ProgressBar } from '../components';
 import { useLogs } from '../context/LogContext';
 import { DownloadProgress } from '../types';
@@ -199,6 +199,33 @@ export function OfficePage() {
     });
   };
 
+  // Desinstalación COMPLETA de Office (Office Scrubber oficial)
+  const uninstallOfficeCompletely = () => {
+    setConfirmModal({
+      open: true,
+      title: 'Desinstalación COMPLETA de Office',
+      message: 'ADVERTENCIA: Esto eliminará TODOS los componentes de Office:\n\n• Todas las aplicaciones (Word, Excel, PowerPoint, Outlook, etc.)\n• Licencias y activaciones\n• Archivos de registro y configuración\n• Carpetas de instalación y datos\n• Tareas programadas y servicios\n\nEsta acción es IRREVERSIBLE. Se descargará y ejecutará el script oficial de Microsoft (Office Scrubber / Support and Recovery Assistant).\n\nSe recomienda REINICIAR después.\n\nÂ¿Seguro que desea continuar?',
+      onConfirm: () => {
+        setConfirmModal({ ...confirmModal, open: false });
+        setLoading(true);
+        setOutput('');
+        log('Office', 'Desinstalando', 'Ejecutando Office Scrubber oficial...', 'warning');
+        
+        // Descargar y ejecutar Office Scrubber oficial
+        const scrubberCmd = 'powershell -NoProfile -ExecutionPolicy Bypass -Command "Start-Process powershell -Verb RunAs -ArgumentList \'-NoProfile -ExecutionPolicy Bypass -Command irm https://aka.ms/OfficeScrubber | iex\'"';
+        
+        window.electronAPI.runCommand(scrubberCmd).then(r => {
+          setOutput(r.output || 'Script de desinstalación ejecutado. Siga las instrucciones en pantalla.');
+          log('Office', 'Desinstalación', r.success ? 'Script ejecutado. Reinicie el equipo.' : 'Error', r.success ? 'warning' : 'error');
+          setLoading(false);
+        }).catch(err => {
+          log('Office', 'Error', String(err), 'error');
+          setLoading(false);
+        });
+      }
+    });
+  };
+
   // REPAIR
   const repairOffice = (type: string) => {
     setConfirmModal({
@@ -388,6 +415,21 @@ export function OfficePage() {
               title="ReparaciÃ³n completa"
               description="Reinstala componentes. Abre Panel de Control"
               accentColor="yellow" primaryAction="Reparar" primaryOnClick={() => repairOffice('Completa')} loading={loading}
+            />
+          </div>
+          
+          {/* Desinstalación completa de Office */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <ToolCard
+              icon={<Trash2 size={20} />}
+              title="Desinstalación COMPLETA de Office"
+              description="Elimina TODOS los componentes de Office (incluye licencias, registro, carpetas, tareas programadas). Usa el script oficial de Microsoft (Office Scrubber). Requiere reinicio."
+              status="error"
+              statusText="Irreversible"
+              accentColor="red"
+              primaryAction="Desinstalar TODO"
+              primaryOnClick={uninstallOfficeCompletely}
+              loading={loading}
             />
           </div>
         </div>

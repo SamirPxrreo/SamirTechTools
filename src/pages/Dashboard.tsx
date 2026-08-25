@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Cpu, HardDrive, MemoryStick, MonitorSmartphone, Wifi, Info, RefreshCw, FileText } from 'lucide-react';
+import { Cpu, HardDrive, MemoryStick, MonitorSmartphone, Wifi, Info, RefreshCw, FileText, Trash2, Loader } from 'lucide-react';
 import { ToolCard, ProgressBar, SystemCard } from '../components';
 import { CpuInfo, RamInfo, DiskInfo, GpuInfo, WindowsInfo, NetworkInfo } from '../types';
 import { formatBytes, formatFrequency, formatUptime } from '../utils';
@@ -103,6 +103,35 @@ export function Dashboard({
     setGeneratingReport(false);
   }, [cpuInfo, ramInfo, diskInfo, gpuInfo, windowsInfo, networkInfo, addLog]);
 
+  // Limpiar RAM (liberar standby list)
+  const [clearingRAM, setClearingRAM] = useState(false);
+  const clearRAM = useCallback(async () => {
+    setClearingRAM(true);
+    addLog('RAM', 'Limpiando', 'Liberando memoria standby...', 'info');
+    try {
+      const r = await window.electronAPI.runCommand(
+        'powershell -NoProfile -ExecutionPolicy Bypass -Command "& { $sig = \"[DllImport(\\\"kernel32.dll\\\")]public static extern bool SetProcessWorkingSetSize(IntPtr hProcess, int dwMinimumWorkingSetSize, int dwMaximumWorkingSetSize);\"; Add-Type -MemberDefinition $sig -Namespace Win32 -Name Kernel32; [Win32.Kernel32]::SetProcessWorkingSetSize((Get-Process -Id $pid).Handle, -1, -1) }"'
+      );
+      // Método alternativo: EmptyStandbyList si existe
+      if (!r.success) {
+        await window.electronAPI.runCommand(
+          'powershell -NoProfile -ExecutionPolicy Bypass -Command "if (Test-Path \"$env:TEMP\\EmptyStandbyList.exe\") { & \"$env:TEMP\\EmptyStandbyList.exe\" standby } else { Write-Host \"EmptyStandbyList no disponible\" }"'
+        );
+      }
+      addLog('RAM', 'Limpiando', 'Memoria standby liberada', 'success');
+    } catch (err) {
+      addLog('RAM', 'Error', String(err), 'error');
+    }
+    setClearingRAM(false);
+    // Refrescar info de RAM
+    onRefresh();
+  }, [addLog, onRefresh]);
+
+  const refreshSystemInfo = useCallback(() => {
+    addLog('Sistema', 'Actualizando', 'Refrescando información del sistema...', 'info');
+    onRefresh();
+  }, [addLog, onRefresh]);
+
   return (
     <div className="space-y-6 animate-fade-in">
       <div className="flex items-center justify-between">
@@ -189,6 +218,23 @@ export function Dashboard({
                   ))}
                 </div>
               )}
+              <div className="flex gap-2 pt-2 border-t border-dark-700">
+                <button
+                  onClick={clearRAM}
+                  disabled={clearingRAM}
+                  className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 bg-yellow-600/80 hover:bg-yellow-700 text-white text-xs font-medium rounded-lg transition-all duration-200 disabled:opacity-50"
+                >
+                  {clearingRAM ? <Loader size={13} className="animate-spin" /> : <Trash2 size={13} />}
+                  {clearingRAM ? 'Limpiando...' : 'Liberar RAM'}
+                </button>
+                <button
+                  onClick={refreshSystemInfo}
+                  className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 bg-dark-700 hover:bg-dark-600 text-dark-200 text-xs font-medium rounded-lg transition-all duration-200"
+                >
+                  <RefreshCw size={13} />
+                  Actualizar
+                </button>
+              </div>
             </div>
           )}
         </ToolCard>
@@ -267,6 +313,12 @@ export function Dashboard({
               <SystemCard title="Build" value={windowsInfo.build || 'N/A'} color="text-cyan-400" />
               <SystemCard title="Arquitectura" value={windowsInfo.architecture || 'N/A'} color="text-cyan-400" />
               <SystemCard title="Registrado a" value={windowsInfo.registeredUser || 'N/A'} color="text-cyan-400" />
+              {windowsInfo.boardManufacturer && (
+                <SystemCard title="Placa Base" value={`${windowsInfo.boardManufacturer} ${windowsInfo.boardProduct || ''}`.trim()} color="text-purple-400" />
+              )}
+              {windowsInfo.boardVersion && (
+                <SystemCard title="Versión BIOS" value={windowsInfo.boardVersion} color="text-purple-400" />
+              )}
             </div>
           )}
         </ToolCard>

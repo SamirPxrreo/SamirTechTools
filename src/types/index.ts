@@ -61,6 +61,10 @@ export interface WindowsInfo {
   lastBoot?: string;
   serialNumber?: string;
   registeredUser?: string;
+  boardManufacturer?: string;
+  boardProduct?: string;
+  boardVersion?: string;
+  boardSerial?: string;
 }
 
 export interface NetworkInfo {
