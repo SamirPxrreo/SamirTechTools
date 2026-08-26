@@ -1,5 +1,6 @@
 node_modules/
 dist/
 release/
-resources/defender-control/
 *.log
+# dControl se mantiene en el repo (requerido para Defender Control)
+!resources/defender-control/
