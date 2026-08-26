@@ -6,10 +6,10 @@ interface StatusBadgeProps {
 }
 
 const colors = {
-  ok: 'bg-green-500/10 text-green-400 border-green-500/20',
-  warning: 'bg-yellow-500/10 text-yellow-400 border-yellow-500/20',
-  error: 'bg-red-500/10 text-red-400 border-red-500/20',
-  info: 'bg-blue-500/10 text-blue-400 border-blue-500/20',
+  ok: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+  warning: 'bg-amber-50 text-amber-700 border-amber-200',
+  error: 'bg-red-50 text-red-700 border-red-200',
+  info: 'bg-sky-50 text-sky-700 border-sky-200',
 };
 
 export function StatusBadge({ status, children }: StatusBadgeProps) {
@@ -30,21 +30,21 @@ interface ProgressBarProps {
 export function ProgressBar({ value, color, height = 'h-2', showLabel = false }: ProgressBarProps) {
   const getColor = () => {
     if (color) return color;
-    if (value < 50) return 'bg-green-500';
-    if (value < 80) return 'bg-yellow-500';
+    if (value < 50) return 'bg-emerald-500';
+    if (value < 80) return 'bg-amber-500';
     return 'bg-red-500';
   };
 
   return (
     <div className="w-full">
-      <div className={`w-full bg-dark-700 rounded-full ${height}`}>
+      <div className={`w-full bg-slate-200 rounded-full ${height}`}>
         <div
           className={`${getColor()} ${height} rounded-full transition-all duration-500 ease-out`}
           style={{ width: `${Math.min(value, 100)}%` }}
         />
       </div>
       {showLabel && (
-        <span className="text-[10px] text-dark-400 mt-1 block">{Math.round(value)}%</span>
+        <span className="text-[10px] text-slate-500 mt-1 block">{Math.round(value)}%</span>
       )}
     </div>
   );

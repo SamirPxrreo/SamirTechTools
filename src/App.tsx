@@ -114,7 +114,7 @@ function AppContent() {
   };
 
   return (
-    <div className="h-screen flex flex-col bg-dark-950 text-neutral-900 overflow-hidden">
+    <div className="h-screen flex flex-col bg-slate-50 text-slate-900 overflow-hidden">
       <Header
         computerName={computerName}
         username={username}
@@ -131,7 +131,7 @@ function AppContent() {
           loading={loading}
           onRefresh={loadSystemInfo}
         />
-        <main className="flex-1 overflow-y-auto p-4 md:p-5">
+        <main className="flex-1 overflow-y-auto p-6 bg-slate-50">
           {loading && currentPage === 'dashboard' ? (
             <div className="flex flex-col items-center justify-center h-full animate-fade-in">
               <div className="relative">

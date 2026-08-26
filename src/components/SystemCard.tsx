@@ -8,15 +8,15 @@ interface SystemCardProps {
   color?: string;
 }
 
-export function SystemCard({ title, value, subtitle, icon, color = 'text-primary-400' }: SystemCardProps) {
+export function SystemCard({ title, value, subtitle, icon, color = 'text-slate-900' }: SystemCardProps) {
   return (
-    <div className="bg-dark-800/50 rounded-lg p-3 border border-dark-700/50">
-      <div className="flex items-center gap-2 mb-1">
-        {icon && <span className={color}>{icon}</span>}
-        <span className="text-[10px] text-dark-400 uppercase tracking-wider">{title}</span>
+    <div className="bg-slate-50 border border-slate-200 rounded-2xl p-3">
+      <div className="flex items-center gap-1.5 mb-1">
+        {icon && <span className="text-slate-500">{icon}</span>}
+        <span className="text-[10px] font-semibold tracking-widest text-slate-400 uppercase">{title}</span>
       </div>
-      <div className={`text-sm font-semibold ${color}`}>{value}</div>
-      {subtitle && <div className="text-[10px] text-dark-500 mt-0.5">{subtitle}</div>}
+      <div className="text-[13px] font-semibold text-slate-900 truncate" title={value}>{value}</div>
+      {subtitle && <div className="text-[11px] text-slate-500 mt-0.5">{subtitle}</div>}
     </div>
   );
 }

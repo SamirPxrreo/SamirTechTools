@@ -130,27 +130,27 @@ export function Dashboard({
 
   return (
     <div className="space-y-6 animate-fade-in">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-4">
         <div>
-          <h1 className="text-xl font-bold text-neutral-900">Centro de Diagnóstico</h1>
-          <p className="text-xs text-dark-400 mt-1">Información del sistema en tiempo real</p>
+          <h1 className="text-[20px] font-bold tracking-tight text-slate-900">Centro de Diagnóstico</h1>
+          <p className="text-[13px] text-slate-500 mt-1">Información del sistema en tiempo real · Actualizado al iniciar</p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 shrink-0">
           <button
             onClick={handleGenerateReport}
             disabled={generatingReport}
-            className="flex items-center gap-2 px-4 py-2 bg-dark-700 hover:bg-dark-600 border border-dark-600 text-neutral-900 text-sm font-medium rounded-lg transition-all duration-200 disabled:opacity-50"
+            className="inline-flex items-center gap-2 px-4 py-2.5 bg-white border border-slate-200 text-slate-700 text-[13px] font-medium rounded-xl hover:bg-slate-50 hover:border-slate-300 transition-colors disabled:opacity-50 shadow-sm"
           >
-            <FileText size={16} />
-            {generatingReport ? 'Generando...' : 'Generar reporte'}
+            <FileText size={15} />
+            {generatingReport ? 'Generando...' : 'Reporte'}
           </button>
           <button
             onClick={handleAnalyze}
             disabled={analyzing}
-            className="flex items-center gap-2 px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white text-sm font-medium rounded-lg transition-all duration-200 disabled:opacity-50"
+            className="inline-flex items-center gap-2 px-4 py-2.5 bg-slate-900 hover:bg-slate-800 text-white text-[13px] font-medium rounded-xl transition-colors disabled:opacity-50 shadow-sm"
           >
-            <RefreshCw size={16} className={analyzing ? 'animate-spin' : ''} />
-            {analyzing ? 'Analizando...' : 'Analizar equipo'}
+            <RefreshCw size={15} className={analyzing ? 'animate-spin' : ''} />
+            {analyzing ? 'Analizando...' : 'Analizar'}
           </button>
         </div>
       </div>
@@ -172,15 +172,15 @@ export function Dashboard({
           {cpuInfo && (
             <div className="space-y-3">
               <div className="grid grid-cols-2 gap-2">
-                <SystemCard title="Uso" value={`${cpuInfo.usage}%`} color="text-blue-400" icon={<Cpu size={12} />} />
-                <SystemCard title="Núcleos" value={`${cpuInfo.cores}`} subtitle={`${cpuInfo.logicalCores} hilos`} color="text-blue-400" />
-                <SystemCard title="Frecuencia" value={formatFrequency(cpuInfo.speed * 1000)} color="text-blue-400" />
-                <SystemCard title="Máxima" value={formatFrequency(cpuInfo.maxSpeed * 1000)} color="text-blue-400" />
+                <SystemCard title="Uso" value={`${cpuInfo.usage}%`} icon={<Cpu size={12} />} />
+                <SystemCard title="Núcleos" value={`${cpuInfo.cores}`} subtitle={`${cpuInfo.logicalCores} hilos`} />
+                <SystemCard title="Frecuencia" value={formatFrequency(cpuInfo.speed * 1000)} />
+                <SystemCard title="Máxima" value={formatFrequency(cpuInfo.maxSpeed * 1000)} />
               </div>
               <ProgressBar value={cpuInfo.usage} />
               {cpuInfo.temperature !== null && (
-                <div className="text-[10px] text-dark-400">
-                  Temperatura: <span className="text-neutral-900">{cpuInfo.temperature}°C</span>
+                <div className="text-[10px] text-slate-500">
+                  Temperatura: <span className="text-slate-900">{cpuInfo.temperature}°C</span>
                 </div>
               )}
             </div>
@@ -201,31 +201,31 @@ export function Dashboard({
           {ramInfo && (
             <div className="space-y-3">
               <div className="grid grid-cols-2 gap-2">
-                <SystemCard title="Total" value={formatBytes(ramInfo.total)} color="text-green-400" />
-                <SystemCard title="Disponible" value={formatBytes(ramInfo.free)} color="text-green-400" />
-                <SystemCard title="Utilizada" value={formatBytes(ramInfo.used)} color="text-green-400" />
-                <SystemCard title="Módulos" value={`${ramInfo.moduleCount}`} color="text-green-400" />
+                <SystemCard title="Total" value={formatBytes(ramInfo.total)} />
+                <SystemCard title="Disponible" value={formatBytes(ramInfo.free)} />
+                <SystemCard title="Utilizada" value={formatBytes(ramInfo.used)} />
+                <SystemCard title="Módulos" value={`${ramInfo.moduleCount}`} />
               </div>
               <ProgressBar value={ramInfo.percentage} />
               {ramInfo.modules.length > 0 && (
-                <div className="text-[10px] text-dark-400">
+                <div className="text-[10px] text-slate-500">
                   {ramInfo.modules.map((m, i) => (
                     <div key={i}>Módulo {i + 1}: {formatBytes(m.capacity)} - {m.speed}MHz</div>
                   ))}
                 </div>
               )}
-              <div className="flex gap-2 pt-2 border-t border-dark-700">
+              <div className="flex gap-2 pt-2 border-t border-slate-200">
                 <button
                   onClick={clearRAM}
                   disabled={clearingRAM}
-                  className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 bg-yellow-600/80 hover:bg-yellow-700 text-neutral-900 text-xs font-medium rounded-lg transition-all duration-200 disabled:opacity-50"
+                  className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 bg-amber-500 hover:bg-amber-600 text-white text-white text-xs font-medium rounded-lg transition-all duration-200 disabled:opacity-50"
                 >
                   {clearingRAM ? <Loader size={13} className="animate-spin" /> : <Trash2 size={13} />}
                   {clearingRAM ? 'Limpiando...' : 'Liberar RAM'}
                 </button>
                 <button
                   onClick={refreshSystemInfo}
-                  className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 bg-dark-700 hover:bg-dark-600 text-dark-200 text-xs font-medium rounded-lg transition-all duration-200"
+                  className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 text-xs font-medium rounded-lg transition-all duration-200"
                 >
                   <RefreshCw size={13} />
                   Actualizar
@@ -254,11 +254,11 @@ export function Dashboard({
                 return (
                   <div key={i}>
                     <div className="flex justify-between text-[10px] mb-1">
-                      <span className="text-dark-300">Disco {disk.letter}</span>
-                      <span className="text-dark-400">{formatBytes(disk.free)} libre</span>
+                      <span className="text-slate-600">Disco {disk.letter}</span>
+                      <span className="text-slate-500">{formatBytes(disk.free)} libre</span>
                     </div>
                     <ProgressBar value={pct} />
-                    <div className="text-[10px] text-dark-500 mt-0.5">
+                    <div className="text-[10px] text-slate-500 mt-0.5">
                       {formatBytes(used)} / {formatBytes(disk.total)} ({Math.round(pct)}%)
                     </div>
                   </div>
@@ -283,10 +283,10 @@ export function Dashboard({
             <div className="space-y-3">
               {gpuInfo.map((gpu, i) => (
                 <div key={i} className="grid grid-cols-2 gap-2">
-                  <SystemCard title="Modelo" value={gpu.name} color="text-purple-400" />
-                  <SystemCard title="VRAM" value={gpu.vram > 0 ? formatBytes(gpu.vram) : 'N/A'} color="text-purple-400" />
-                  <SystemCard title="Driver" value={gpu.driverVersion} color="text-purple-400" />
-                  <SystemCard title="Fecha" value={gpu.driverDate || 'N/A'} color="text-purple-400" />
+                  <SystemCard title="Modelo" value={gpu.name} />
+                  <SystemCard title="VRAM" value={gpu.vram > 0 ? formatBytes(gpu.vram) : 'N/A'} />
+                  <SystemCard title="Driver" value={gpu.driverVersion} />
+                  <SystemCard title="Fecha" value={gpu.driverDate || 'N/A'} />
                 </div>
               ))}
             </div>
@@ -305,15 +305,15 @@ export function Dashboard({
         >
           {windowsInfo && (
             <div className="grid grid-cols-2 gap-2">
-              <SystemCard title="Versión" value={windowsInfo.version || 'N/A'} color="text-cyan-400" />
-              <SystemCard title="Build" value={windowsInfo.build || 'N/A'} color="text-cyan-400" />
-              <SystemCard title="Arquitectura" value={windowsInfo.architecture || 'N/A'} color="text-cyan-400" />
-              <SystemCard title="Registrado a" value={windowsInfo.registeredUser || 'N/A'} color="text-cyan-400" />
+              <SystemCard title="Versión" value={windowsInfo.version || 'N/A'} />
+              <SystemCard title="Build" value={windowsInfo.build || 'N/A'} />
+              <SystemCard title="Arquitectura" value={windowsInfo.architecture || 'N/A'} />
+              <SystemCard title="Registrado a" value={windowsInfo.registeredUser || 'N/A'} />
               {windowsInfo.boardManufacturer && (
-                <SystemCard title="Placa Base" value={`${windowsInfo.boardManufacturer} ${windowsInfo.boardProduct || ''}`.trim()} color="text-purple-400" />
+                <SystemCard title="Placa Base" value={`${windowsInfo.boardManufacturer} ${windowsInfo.boardProduct || ''}`.trim()} />
               )}
               {windowsInfo.boardVersion && (
-                <SystemCard title="Versión BIOS" value={windowsInfo.boardVersion} color="text-purple-400" />
+                <SystemCard title="Versión BIOS" value={windowsInfo.boardVersion} />
               )}
             </div>
           )}
@@ -332,10 +332,10 @@ export function Dashboard({
         >
           {networkInfo && (
             <div className="grid grid-cols-2 gap-2">
-              <SystemCard title="IP Local" value={networkInfo.ip || 'N/A'} color="text-orange-400" />
-              <SystemCard title="Gateway" value={networkInfo.gateway || 'N/A'} color="text-orange-400" />
-              <SystemCard title="DNS" value={networkInfo.dns || 'N/A'} color="text-orange-400" />
-              <SystemCard title="MAC" value={networkInfo.mac || 'N/A'} color="text-orange-400" />
+              <SystemCard title="IP Local" value={networkInfo.ip || 'N/A'} />
+              <SystemCard title="Gateway" value={networkInfo.gateway || 'N/A'} />
+              <SystemCard title="DNS" value={networkInfo.dns || 'N/A'} />
+              <SystemCard title="MAC" value={networkInfo.mac || 'N/A'} />
             </div>
           )}
         </ToolCard>

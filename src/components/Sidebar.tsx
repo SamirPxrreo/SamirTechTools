@@ -11,6 +11,7 @@ import {
   Settings,
   Network,
   Cpu,
+  RefreshCw,
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -23,60 +24,58 @@ interface SidebarProps {
   onRefresh: () => void;
 }
 
-const menuItems: { id: Page; label: string; icon: React.ReactNode }[] = [
-  { id: 'dashboard', label: 'Diagnóstico', icon: <LayoutDashboard size={17} /> },
-  { id: 'install', label: 'Instalar Apps', icon: <Download size={17} /> },
-  { id: 'windows', label: 'Windows', icon: <Monitor size={17} /> },
-  { id: 'office', label: 'Office', icon: <FileText size={17} /> },
-  { id: 'browsers', label: 'Navegadores', icon: <Globe size={17} /> },
-  { id: 'drivers', label: 'Drivers', icon: <Cpu size={17} /> },
-  { id: 'utilities', label: 'Utilidades', icon: <Wrench size={17} /> },
-  { id: 'network', label: 'Red', icon: <Network size={17} /> },
-  { id: 'uninstaller', label: 'Desinstalador', icon: <Trash2 size={17} /> },
-  { id: 'settings', label: 'Ajustes', icon: <Settings size={17} /> },
+const menuItems: { id: Page; label: string; icon: React.ReactNode; desc: string }[] = [
+  { id: 'dashboard', label: 'Diagnóstico', icon: <LayoutDashboard size={16} />, desc: 'Vista general' },
+  { id: 'install', label: 'Instalar Apps', icon: <Download size={16} />, desc: '235 apps' },
+  { id: 'windows', label: 'Windows', icon: <Monitor size={16} />, desc: 'SFC / DISM' },
+  { id: 'office', label: 'Office', icon: <FileText size={16} />, desc: 'Suite' },
+  { id: 'browsers', label: 'Navegadores', icon: <Globe size={16} />, desc: 'Chrome, Edge...' },
+  { id: 'drivers', label: 'Drivers', icon: <Cpu size={16} />, desc: 'Hardware' },
+  { id: 'utilities', label: 'Utilidades', icon: <Wrench size={16} />, desc: 'Limpieza' },
+  { id: 'network', label: 'Red', icon: <Network size={16} />, desc: 'IP / DNS' },
+  { id: 'uninstaller', label: 'Desinstalador', icon: <Trash2 size={16} />, desc: 'Limpieza profunda' },
+  { id: 'settings', label: 'Ajustes', icon: <Settings size={16} />, desc: 'Preferencias' },
 ];
 
-export function Sidebar({ currentPage, onNavigate, computerName, username, isAdmin, loading, onRefresh }: SidebarProps) {
+export function Sidebar({ currentPage, onNavigate, loading, onRefresh }: SidebarProps) {
   return (
-    <aside className="w-56 flex-shrink-0 border-r border-neutral-300 bg-neutral-50 flex flex-col">
+    <aside className="w-[252px] shrink-0 bg-white border-r border-slate-200 flex flex-col">
       {/* Nav */}
-      <nav className="flex-1 py-3 px-2 space-y-0.5 overflow-y-auto">
+      <nav className="flex-1 py-4 px-3 space-y-1 overflow-y-auto">
+        <p className="px-2 mb-2 text-[10px] font-semibold tracking-widest text-slate-400 uppercase">Navegación</p>
         {menuItems.map(item => {
           const active = currentPage === item.id;
           return (
             <button
               key={item.id}
               onClick={() => onNavigate(item.id)}
-              className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-md text-xs font-medium transition-colors ${
+              className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-2xl text-left transition-all border ${
                 active
-                  ? 'bg-primary-600 text-white font-semibold'
-                  : 'text-neutral-700 hover:bg-neutral-200'
+                  ? 'bg-slate-900 text-white border-slate-900 shadow-sm'
+                  : 'bg-white text-slate-700 border-transparent hover:bg-slate-50 hover:border-slate-200'
               }`}
             >
-              {item.icon}
-              {item.label}
+              <span className={`w-7 h-7 grid place-items-center rounded-xl shrink-0 ${active ? 'bg-white/10 text-white' : 'bg-slate-100 text-slate-600'}`}>{item.icon}</span>
+              <span className="min-w-0 flex-1">
+                <span className={`block text-[13px] font-medium leading-none ${active ? 'text-white' : 'text-slate-900'}`}>{item.label}</span>
+                <span className={`block text-[11px] leading-none mt-1 ${active ? 'text-white/60' : 'text-slate-500'}`}>{item.desc}</span>
+              </span>
             </button>
           );
         })}
       </nav>
 
-      {/* Sistema */}
-      <div className="px-3 pb-3 pt-3 border-t border-neutral-200">
-        <p className="text-[10px] font-bold text-neutral-500 uppercase tracking-wide mb-1.5">Sistema</p>
-        <div className="space-y-1 text-[10px] text-neutral-600">
-          <p className="truncate">{computerName || '...'}</p>
-          <p className="truncate">{username || '...'}</p>
-          <p className={isAdmin ? 'text-green-700 font-semibold' : 'text-yellow-700 font-semibold'}>
-            {isAdmin ? 'Administrador' : 'Sin privilegios'}
-          </p>
-        </div>
+      {/* Footer minimal - sin info repetida (ya está en Header) */}
+      <div className="p-3 border-t border-slate-200 space-y-2">
         <button
           onClick={onRefresh}
           disabled={loading}
-          className="w-full mt-2 flex items-center justify-center gap-1.5 px-2 py-1.5 bg-white border border-neutral-300 rounded text-[10px] font-medium text-neutral-700 hover:bg-neutral-100 transition-colors disabled:opacity-50"
+          className="w-full inline-flex items-center justify-center gap-2 px-3 py-2.5 rounded-2xl bg-white border border-slate-200 text-[12px] font-medium text-slate-700 hover:bg-slate-50 hover:border-slate-300 transition-colors disabled:opacity-50 shadow-sm"
         >
+          <RefreshCw size={13} className={loading ? 'animate-spin' : ''} />
           {loading ? 'Analizando...' : 'Actualizar diagnóstico'}
         </button>
+        <p className="text-center text-[10px] text-slate-400">SamirTechTools · v1.0.0</p>
       </div>
     </aside>
   );
