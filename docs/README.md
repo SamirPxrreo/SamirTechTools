@@ -55,12 +55,33 @@ Ve a la sección [Releases](https://github.com/SamirPxrreo/SamirTechTools/releas
 ## 💻 Desarrollo
 
 ### Requisitos
-- Node.js 18+ ([nodejs.org](https://nodejs.org))
+- Node.js 20 LTS recomendado ([nodejs.org](https://nodejs.org)) — Node 18+ mínimo, evitar Node 26
+- Git: https://git-scm.com/downloads
+
+### Primera vez en una PC nueva
+```powershell
+git clone https://github.com/SamirPxrreo/SamirTechTools.git
+cd SamirTechTools
+npm install
+npm run electron:dev
+```
+> No clonar en `C:\` directo (da problemas de permisos con Electron). Usar `Desktop` o `Documents`. Guía completa en `GUIA_SINCRONIZACION.md`.
+
+### Trabajo diario entre 2 PCs
+```powershell
+# Al empezar en la PC: bajar lo nuevo
+git pull
+
+# Al terminar: subir lo que hiciste
+git add .
+git commit -m "describe tu cambio"
+git push
+```
 
 ### Ejecutar en modo desarrollo
 ```powershell
-npm install           # una sola vez
-npm run electron:dev  # abre la app con hot-reload
+npm install           # una sola vez por PC
+npm run electron:dev  # abre la app con hot-reload (requiere --dev flag en package.json)
 ```
 
 ### Compilar
