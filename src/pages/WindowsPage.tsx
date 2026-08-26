@@ -62,7 +62,7 @@ const checkDefender = useCallback(async () => {
 
   useEffect(() => { checkDefender(); }, [checkDefender]);
 
-  const toggleDefender = (action: 'disable' | 'enable') => {
+  const toggleDefender = (action: 'disable' | 'enable' | 'open') => {
     setDefenderLoading(true);
     addLog('Windows', 'Defender', action === 'disable' ? 'Desactivando...' : 'Activando...', 'info');
     window.electronAPI.defenderTool(action).then(r => {
@@ -286,9 +286,17 @@ const checkDefender = useCallback(async () => {
                 )}
               </div>
               <p className="text-[11px] text-dark-400 mt-1">
-                Activación o desactivación con un clic. Si Tamper Protection está activado, desactívalo primero en Seguridad de Windows.
+                Abre Defender Control de Sordum (coloca dControl.exe en resources\defender-control, descárgalo de sordum.org). Si no está, usa los botones Activar/Desactivar directos.
               </p>
               <div className="flex gap-2 mt-3 flex-wrap">
+                <button
+                  onClick={() => toggleDefender('open')}
+                  disabled={defenderLoading}
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-orange-600 hover:bg-orange-700 text-white text-xs font-medium rounded-lg transition-all duration-200 disabled:opacity-50"
+                >
+                  <Shield size={13} />
+                  Abrir Defender Control (Sordum)
+                </button>
                 <button
                   onClick={() => toggleDefender('disable')}
                   disabled={defenderLoading || defenderEnabled === false}

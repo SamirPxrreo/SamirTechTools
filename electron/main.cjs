@@ -533,7 +533,7 @@ ipcMain.handle('write-file', async (event, { path, content }) => {
   }
 });
 
-// Windows Defender: toggle nativo via exe open-source (pgkt04/defender-control) con descarga automatica
+// Windows Defender: dControl de Sordum (si esta presente) con fallback open-source
 ipcMain.handle('defender-tool', async (event, action) => {
   const path = require('path');
   let dir;
@@ -542,9 +542,15 @@ ipcMain.handle('defender-tool', async (event, action) => {
   } else {
     dir = path.join(__dirname, '..', 'resources', 'defender-control');
   }
+  const dControl = path.join(dir, 'dControl.exe');
   const disableExe = path.join(dir, 'disable-defender.exe');
   const enableExe = path.join(dir, 'enable-defender.exe');
   try {
+    // Preferir dControl de Sordum si el usuario lo coloco en la carpeta
+    if (fs.existsSync(dControl)) {
+      await ps(`Start-Process -FilePath '${dControl}' -Verb RunAs`);
+      return { success: true, output: 'Defender Control (Sordum) abierto. Presiona el boton grande para Activar o Desactivar.' };
+    }
     if (!fs.existsSync(disableExe) || !fs.existsSync(enableExe)) {
       fs.mkdirSync(dir, { recursive: true });
       const base = 'https://github.com/pgkt04/defender-control/releases/download/v2.0/';
@@ -562,7 +568,7 @@ ipcMain.handle('defender-tool', async (event, action) => {
       return { success: true, output: 'Comando de activacion enviado. Actualiza el estado en unos segundos.' };
     } else {
       shell.openPath(dir);
-      return { success: true, output: 'Carpeta de herramientas abierta.' };
+      return { success: true, output: 'Carpeta de herramientas abierta. Coloca dControl.exe ahi para usar Sordum.' };
     }
   } catch (err) {
     return { success: false, output: String(err) };

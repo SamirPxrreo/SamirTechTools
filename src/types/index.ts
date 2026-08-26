@@ -127,7 +127,6 @@ export type Page =
   | 'browsers' 
   | 'utilities' 
   | 'network' 
-  | 'christitus'
   | 'uninstaller'
   | 'settings';
 

@@ -9,7 +9,6 @@ import {
   UtilitiesPage,
   NetworkPage,
   SettingsPage,
-  ChrisTitusPage,
   UninstallerPage,
   InstallPage,
 } from './pages';
@@ -105,8 +104,6 @@ function AppContent() {
         return <UtilitiesPage />;
       case 'network':
         return <NetworkPage networkInfo={networkInfo} />;
-      case 'christitus':
-        return <ChrisTitusPage />;
       case 'uninstaller':
         return <UninstallerPage />;
       case 'settings':

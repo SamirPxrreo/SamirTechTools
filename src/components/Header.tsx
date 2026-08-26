@@ -8,7 +8,6 @@ import {
   FileText,
   Globe,
   Wrench,
-  Terminal,
   Trash2,
   Settings,
   Network,
@@ -32,7 +31,6 @@ const menuItems: { id: Page; label: string; icon: React.ReactNode }[] = [
   { id: 'drivers', label: 'Drivers', icon: <Cpu size={14} /> },
   { id: 'utilities', label: 'Utilidades', icon: <Wrench size={14} /> },
   { id: 'network', label: 'Red', icon: <Network size={14} /> },
-  { id: 'christitus', label: 'WinUtil', icon: <Terminal size={14} /> },
   { id: 'uninstaller', label: 'Desinstalador', icon: <Trash2 size={14} /> },
   { id: 'settings', label: 'Ajustes', icon: <Settings size={14} /> },
 ];

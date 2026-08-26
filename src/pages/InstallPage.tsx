@@ -99,15 +99,26 @@ export function InstallPage() {
                   key={app.wingetId}
                   onClick={() => st === 'idle' && installApp(app.wingetId, app.name)}
                   disabled={st === 'installing'}
+                  title={app.description || app.wingetId}
                   className="bg-white border border-neutral-300 rounded-md px-3 py-2.5 flex items-center gap-2 text-left hover:border-primary-500 hover:shadow-sm transition-all disabled:cursor-not-allowed group"
                 >
+                  {app.link ? (
+                    <img
+                      src={`https://www.google.com/s2/favicon?sz=64&domain_url=${app.link}`}
+                      alt=""
+                      className="w-4.5 h-4.5 w-[18px] h-[18px] flex-shrink-0 rounded-sm"
+                      onError={(e) => { (e.target as HTMLImageElement).style.visibility = 'hidden'; }}
+                    />
+                  ) : (
+                    <span className="w-[18px] flex-shrink-0" />
+                  )}
                   <span className="flex-shrink-0">
                     {st === 'idle' && <Download size={15} className="text-neutral-400 group-hover:text-primary-600" />}
                     {st === 'installing' && <Loader2 size={15} className="text-blue-600 animate-spin" />}
                     {st === 'done' && <CheckCircle2 size={15} className="text-green-600" />}
                     {st === 'error' && <XCircle size={15} className="text-red-600" />}
                   </span>
-                  <span className="min-w-0">
+                  <span className="min-w-0 flex-1">
                     <span className="block text-xs font-medium text-neutral-800 truncate">{app.name}</span>
                     {st === 'done' && <span className="block text-[9px] text-green-600">Instalado</span>}
                     {st === 'error' && <span className="block text-[9px] text-red-600">Error - clic para reintentar</span>}

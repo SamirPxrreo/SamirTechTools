@@ -99,6 +99,44 @@ html, body, #root {
 [data-theme='dark'] .bg-neutral-800 { background-color: #475569; }
 [data-theme='dark'] .hover\:bg-neutral-700 { background-color: #475569; }
 
+/* ===== Paleta dark-* : legible en claro y oscuro ===== */
+
+/* Tema claro (default) */
+.text-dark-200, .text-dark-300 { color: #262626; }
+.text-dark-400 { color: #555555; }
+.text-dark-500 { color: #404040; }
+.bg-dark-700 { background-color: #e5e5e5; }
+.bg-dark-800 { background-color: #ffffff; }
+.bg-dark-900 { background-color: #fafafa; }
+.bg-dark-950 { background-color: #f5f5f5; }
+.bg-dark-800\/50 { background-color: rgba(255, 255, 255, 0.65); }
+.bg-dark-800\/80 { background-color: rgba(255, 255, 255, 0.9); }
+.bg-dark-700\/50 { background-color: rgba(229, 229, 229, 0.5); }
+.border-dark-600, .border-dark-700 { border-color: #d4d4d4; }
+.border-dark-700\/50 { border-color: rgba(212, 212, 212, 0.5); }
+.hover\:bg-dark-600:hover { background-color: #e5e5e5; }
+.hover\:bg-dark-700:hover { background-color: #ececec; }
+.hover\:bg-dark-800\/60:hover { background-color: rgba(240, 240, 240, 0.7); }
+.placeholder-dark-500::placeholder { color: #a3a3a3; }
+
+/* Tema oscuro */
+[data-theme='dark'] .text-dark-200, [data-theme='dark'] .text-dark-300 { color: #cbd5e1; }
+[data-theme='dark'] .text-dark-400 { color: #94a3b8; }
+[data-theme='dark'] .text-dark-500 { color: #64748b; }
+[data-theme='dark'] .bg-dark-700 { background-color: #1a2440; }
+[data-theme='dark'] .bg-dark-800 { background-color: #16203a; }
+[data-theme='dark'] .bg-dark-900 { background-color: #101a32; }
+[data-theme='dark'] .bg-dark-950 { background-color: #0a1120; }
+[data-theme='dark'] .bg-dark-800\/50 { background-color: rgba(22, 32, 58, 0.5); }
+[data-theme='dark'] .bg-dark-800\/80 { background-color: rgba(22, 32, 58, 0.85); }
+[data-theme='dark'] .bg-dark-700\/50 { background-color: rgba(26, 36, 64, 0.5); }
+[data-theme='dark'] .border-dark-600, [data-theme='dark'] .border-dark-700 { border-color: #243055; }
+[data-theme='dark'] .border-dark-700\/50 { border-color: rgba(36, 48, 85, 0.5); }
+[data-theme='dark'] .hover\:bg-dark-600:hover { background-color: #243055; }
+[data-theme='dark'] .hover\:bg-dark-700:hover { background-color: #243055; }
+[data-theme='dark'] .hover\:bg-dark-800\/60:hover { background-color: rgba(26, 36, 64, 0.6); }
+[data-theme='dark'] .placeholder-dark-500::placeholder { color: #475569; }
+
 @layer utilities {
   .animate-fade-in {
     animation: fadeIn 0.35s ease-in-out;
