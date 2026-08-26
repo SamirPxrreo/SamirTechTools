@@ -149,11 +149,32 @@ ipcMain.handle('get-disk-info', async () => {
 ipcMain.handle('get-gpu-info', async () => {
   let gpus = [];
   try {
-    const r = await ps('Get-CimInstance Win32_VideoController | ForEach-Object { $_.Name + "|" + $_.AdapterRAM + "|" + $_.DriverVersion + "|" + $_.DriverDate }');
+    const r = await ps('Get-CimInstance Win32_VideoController | ForEach-Object { $_.Name + "|" + $_.AdapterRAM + "|" + $_.DriverVersion + "|" + $_.DriverDate + "|" + $_.PNPDeviceID }');
     for (const line of r.output.trim().split('\n')) {
       const p = line.split('|');
       if (p.length >= 4) {
-        gpus.push({ name: (p[0] || 'Unknown').trim(), vram: parseInt(p[1]) || 0, driverVersion: (p[2] || 'Unknown').trim(), driverDate: (p[3] || 'Unknown').trim() });
+        let vram = parseInt(p[1]) || 0;
+        // AdapterRAM es uint32 (cap 4GB) y suele ser impreciso: leer VRAM real del registro
+        try {
+          const regBase = 'HKLM:\\SYSTEM\\CurrentControlSet\\Control\\Class\\{4d36e968-e325-11ce-bfc1-08002be10318}';
+          const keys = await ps(`Get-ChildItem '${regBase}' -ErrorAction SilentlyContinue | Select-Object -ExpandProperty PSChildName`);
+          const nameLower = ((p[0] || '')).toLowerCase();
+          for (const key of keys.output.trim().split('\n')) {
+            const k = key.trim();
+            if (!/^\d{4}$/.test(k)) continue;
+            const desc = await ps(`(Get-ItemProperty '${regBase}\\${k}' -ErrorAction SilentlyContinue).DriverDesc`);
+            const descTrim = desc.output.trim();
+            if (descTrim && (nameLower.includes(descTrim.toLowerCase()) || descTrim.toLowerCase().includes(nameLower.split(' (')[0]))) {
+              const q = await ps(`(Get-ItemProperty '${regBase}\\${k}' -Name 'HardwareInformation.qpmemorySize' -ErrorAction SilentlyContinue).'HardwareInformation.qpmemorySize'`);
+              const d = await ps(`(Get-ItemProperty '${regBase}\\${k}' -Name 'HardwareInformation.memorySize' -ErrorAction SilentlyContinue).'HardwareInformation.memorySize'`);
+              const qv = parseInt(q.output.trim()) || 0;
+              const dv = parseInt(d.output.trim()) || 0;
+              if (qv > 0) { vram = qv; break; }
+              if (dv > 0) { vram = dv; break; }
+            }
+          }
+        } catch {}
+        gpus.push({ name: (p[0] || 'Unknown').trim(), vram, driverVersion: (p[2] || 'Unknown').trim(), driverDate: (p[3] || 'Unknown').trim() });
       }
     }
   } catch {}
