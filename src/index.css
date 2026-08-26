@@ -1,3 +1,4 @@
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap');
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -46,7 +47,7 @@ html, body, #root {
   height: 100%;
   width: 100%;
   overflow: hidden;
-  font-family: 'Inter', 'Segoe UI Variable', 'Segoe UI', -apple-system, system-ui, sans-serif;
+  font-family: 'Outfit', 'Inter', 'Segoe UI Variable', 'Segoe UI', -apple-system, system-ui, sans-serif;
   background: var(--bg);
   color: var(--text);
   -webkit-font-smoothing: antialiased;

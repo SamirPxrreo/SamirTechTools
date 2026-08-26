@@ -47,7 +47,7 @@ Ve a la sección [Releases](https://github.com/SamirPxrreo/SamirTechTools/releas
 | **Drivers** | Detección por categoría (GPU, audio, red, chipset...) |
 | **Utilidades** | Limpieza de temporales, info del sistema, servicios, red |
 | **ChrisTitusTech** | Ejecuta Winutil al vuelo o descarga `winutil.ps1` para usarlo offline |
-| **Desinstalador** | Multi-selección + eliminación total de rastros: carpetas, registro, servicios, inicio automático y accesos directos |
+| **Desinstalador** | Multi-selección + iconos reales (DisplayIcon/app.getFileIcon), eliminación total de rastros |
 | **Logs** | Registro de actividad en pantalla + guardado en `%APPDATA%\SamirTechTools\logs` |
 
 ---

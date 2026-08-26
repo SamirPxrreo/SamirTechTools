@@ -16,7 +16,7 @@ Aplicación de escritorio para técnicos de soporte informático. Centro de diag
 ## Stack tecnológico
 - **Electron** (ventana frameless, `contextIsolation`, sin nodeIntegration)
 - **React 18** + **TypeScript** + **Vite**
-- **Tailwind CSS** con tema claro/oscuro conmutable
+- **Tailwind CSS** con tema claro/oscuro conmutable (Minimal Pro: `Outfit` + slate palette)
 - **PowerShell** para comandos del sistema
 
 ## Arquitectura
@@ -29,9 +29,9 @@ Aplicación de escritorio para técnicos de soporte informático. Centro de diag
 
 ### Tema claro/oscuro
 - Botón luna/sol en `Header.tsx`. Guarda en `localStorage('stt-theme')` y pone `data-theme` en `<html>`
-- `src/index.css` define variables CSS `--dk-*` para `:root` (claro) y `[data-theme='dark']`
-- La paleta `dark` de `tailwind.config.js` apunta a esas variables
-- Hay overrides CSS explícitos para clases usadas (`text-dark-*`, `bg-dark-*`, `border-dark-*`, neutrales) en ambos temas. **Al agregar clases nuevas de color, agregar overrides en index.css para el modo oscuro.**
+- `src/index.css` define variables CSS `--bg/--surface/--border/--text` + `--dk-*` para `:root` (claro `#f8fafc`) y `[data-theme='dark']` (`#020617`)
+- Diseño **Minimal Pro**: `Outfit` (Google Fonts) para tipografía, `Rounded 20px` global, `slate` palette. Override explícito para `text-slate-*/bg-slate-*/border-slate-*` en ambos temas.
+- Logo circular: `public/logo.jpg` (original 35KB) + `public/icon.png` (512x512 circular con clip). `Header.tsx` lo muestra `rounded-full`.
 
 ### Navegación
 - Sidebar izquierdo (`src/components/Sidebar.tsx`) con las secciones; Header arriba solo con logo/estado/tema/controles de ventana
@@ -68,7 +68,8 @@ Aplicación de escritorio para técnicos de soporte informático. Centro de diag
 - Activación (MAS), reparación rápida/completa, desinstalación total (Office Scrubber)
 
 ### Desinstalador
-- Lista todas las apps del registro (3 hive paths) con versión, editor, fecha de instalación (`InstallDate` formato `yyyyMMdd`), tamaño (`EstimatedSize` en KB)
+- Lista todas las apps del registro (3 hive paths) con versión, editor, fecha de instalación (`InstallDate` formato `yyyyMMdd`), tamaño (`EstimatedSize` en KB), **DisplayIcon**
+- Iconos: IPC `get-app-icon` (usa `app.getFileIcon` con cache) - busca en `DisplayIcon` → `InstallLocation/*.exe` → `UninstallString`. `UninstallerPage.tsx` carga lazy con `<AppIcon>`
 - Filtros: búsqueda nombre/editor, rango de fecha (semana/mes/3 meses/año/más de un año), orden por nombre/fecha/tamaño
 - Desinstalación profunda: script PS elevado que hace MSI/winget/desinstalador original + limpia carpetas, registro, Run keys, servicios y accesos directos
 
@@ -102,10 +103,14 @@ Expand-Archive -Path "$env:TEMP\electron.zip" -DestinationPath "node_modules\ele
 Set-Content -Path "node_modules\electron\path.txt" -Value "electron.exe" -NoNewline
 ```
 
+## Diseño (septiembre 2026)
+- **Minimal Pro**: Header `bg-white/80 backdrop-blur`, sidebar 252px con cards `rounded-2xl`, `ToolCard` `rounded-[20px]`, `SystemCard` `bg-slate-50`. Info del sistema solo en Header (no repetida en sidebar).
+- **Tipografía `Outfit`**, bordes modernos, hover/sombras suaves.
+
 ## Estado (agosto 2026)
 - App funcional, probada en Windows 10/11 x64
 - Instaladores publicados en la release v1.0.0 de GitHub
-- dControl de Sordum incluido en `resources/defender-control/`
+- dControl de Sordum incluido en `resources/defender-control/` (ignorado por `.gitignore`, copiar manualmente en cada clon)
 
 ## Pendientes / ideas futuras
 1. Firmar el código (code signing) para evitar SmartScreen
