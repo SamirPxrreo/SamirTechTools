@@ -120,6 +120,7 @@ export interface LogEntry {
 
 export type Page = 
   | 'dashboard' 
+  | 'install'
   | 'drivers' 
   | 'windows' 
   | 'office' 
@@ -158,6 +159,8 @@ export interface ElectronAPI {
   getAllApps: () => Promise<AllApp[]>;
   uninstallApps: (apps: { name: string; uninstallString: string }[]) => Promise<{ success: boolean; output: string }>;
   runCommand: (command: string) => Promise<{ success: boolean; output: string; code: number }>;
+  wingetInstall: (wingetId: string) => Promise<{ success: boolean; output: string; code: number }>;
+  wingetList: () => Promise<{ success: boolean; output: string }>;
   executeTool: (tool: string, args?: string) => Promise<{ success: boolean; output: string; code: number }>;
   downloadFile: (url: string, destPath: string) => Promise<{ success: boolean; size?: number; output?: string }>;
   writeFile: (path: string, content: string) => Promise<{ success: boolean; output?: string }>;

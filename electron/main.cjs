@@ -450,6 +450,30 @@ ipcMain.handle('execute-tool', async (event, { tool, args }) => {
 });
 
 ipcMain.handle('run-command', async (event, command) => await runCommand(command));
+
+// Instalar app via winget (timeout largo, 15 min)
+ipcMain.handle('winget-install', async (event, wingetId) => {
+  return new Promise((resolve) => {
+    exec(`winget install --id "${wingetId}" -e --accept-source-agreements --accept-package-agreements --silent --disable-interactivity`,
+      { encoding: 'utf-8', maxBuffer: 1024 * 1024 * 10, timeout: 900000 },
+      (error, stdout, stderr) => {
+        if (error && error.killed) resolve({ success: false, output: 'Timeout: la instalacion tardo demasiado', code: -1 });
+        else if (error && error.code !== 0) resolve({ success: false, output: (stdout || '') + (stderr || error.message), code: error.code });
+        else resolve({ success: true, output: stdout, code: 0 });
+      });
+  });
+});
+
+// Verificar si una app esta instalada via winget
+ipcMain.handle('winget-list', async () => {
+  return new Promise((resolve) => {
+    exec('winget list --disable-interactivity',
+      { encoding: 'utf-8', maxBuffer: 1024 * 1024 * 20, timeout: 120000 },
+      (error, stdout) => {
+        resolve({ success: !error, output: stdout || '' });
+      });
+  });
+});
 ipcMain.handle('open-external', (event, url) => shell.openExternal(url));
 ipcMain.handle('open-path', (event, p) => shell.openPath(p));
 ipcMain.handle('show-item-in-folder', (event, p) => shell.showItemInFolder(p));
@@ -509,7 +533,7 @@ ipcMain.handle('write-file', async (event, { path, content }) => {
   }
 });
 
-// Windows Defender via Defender Control (Sordum) - GUI integrada con descarga automatica
+// Windows Defender: toggle nativo via exe open-source (pgkt04/defender-control) con descarga automatica
 ipcMain.handle('defender-tool', async (event, action) => {
   const path = require('path');
   let dir;
@@ -518,25 +542,28 @@ ipcMain.handle('defender-tool', async (event, action) => {
   } else {
     dir = path.join(__dirname, '..', 'resources', 'defender-control');
   }
-  const exe = path.join(dir, 'dControl.exe');
+  const disableExe = path.join(dir, 'disable-defender.exe');
+  const enableExe = path.join(dir, 'enable-defender.exe');
   try {
-    // Descargar automaticamente si falta el ejecutable
-    if (!fs.existsSync(exe)) {
-      const zipPath = path.join(os.tmpdir(), 'Defender_Control.zip');
-      await ps(`Remove-Item '${zipPath}' -Force -ErrorAction SilentlyContinue`);
-      const dl = await downloadFileSync('https://www.sordum.org/files/downloads/defender-control/Defender_Control.zip', zipPath);
-      if (!dl.success) return { success: false, output: 'No se pudo descargar Defender Control: ' + dl.error };
-      const ex = await ps(`Expand-Archive -Path '${zipPath}' -DestinationPath '${dir}' -Force; if (Test-Path '${path.join(dir, 'Defender_Control')}') { Copy-Item '${path.join(dir, 'Defender_Control')}\\*' '${dir}' -Force -Recurse }`);
-      if (!ex.success) return { success: false, output: 'No se pudo extraer: ' + ex.output };
-      try { fs.unlinkSync(zipPath); } catch {}
-      if (!fs.existsSync(exe)) {
-        const found = fs.readdirSync(dir, { recursive: true }).find(f => f.toLowerCase() === 'dcontrol.exe');
-        if (found) fs.copyFileSync(path.join(dir, found), exe);
-        else return { success: false, output: 'dControl.exe no encontrado dentro del ZIP descargado' };
+    if (!fs.existsSync(disableExe) || !fs.existsSync(enableExe)) {
+      fs.mkdirSync(dir, { recursive: true });
+      const base = 'https://github.com/pgkt04/defender-control/releases/download/v2.0/';
+      const d1 = await downloadFileSync(base + 'disable-defender.exe', disableExe);
+      const d2 = await downloadFileSync(base + 'enable-defender.exe', enableExe);
+      if (!d1.success || !d2.success) {
+        return { success: false, output: 'No se pudieron descargar las herramientas de Defender. Verifica tu conexion.' };
       }
     }
-    await ps(`Start-Process -FilePath '${exe}' -Verb RunAs`);
-    return { success: true, output: 'Defender Control abierto. Usa el botón para activar o desactivar.' };
+    if (action === 'disable') {
+      await ps(`Start-Process -FilePath '${disableExe}' -Verb RunAs -Wait`);
+      return { success: true, output: 'Comando de desactivacion enviado. Actualiza el estado en unos segundos.' };
+    } else if (action === 'enable') {
+      await ps(`Start-Process -FilePath '${enableExe}' -Verb RunAs -Wait`);
+      return { success: true, output: 'Comando de activacion enviado. Actualiza el estado en unos segundos.' };
+    } else {
+      shell.openPath(dir);
+      return { success: true, output: 'Carpeta de herramientas abierta.' };
+    }
   } catch (err) {
     return { success: false, output: String(err) };
   }

@@ -62,16 +62,16 @@ const checkDefender = useCallback(async () => {
 
   useEffect(() => { checkDefender(); }, [checkDefender]);
 
-  const openDefenderControl = () => {
+  const toggleDefender = (action: 'disable' | 'enable') => {
     setDefenderLoading(true);
-    addLog('Windows', 'Defender Control', 'Abriendo dControl.exe (Sordum)', 'info');
-    window.electronAPI.defenderTool('open').then(r => {
+    addLog('Windows', 'Defender', action === 'disable' ? 'Desactivando...' : 'Activando...', 'info');
+    window.electronAPI.defenderTool(action).then(r => {
       if (r.success) {
-        addLog('Windows', 'Defender Control', 'Abierto. Dentro del programa presiona el botón para Activar o Desactivar.', 'success');
-        // Refrescar estado cuando el usuario cierre el programa
-        setTimeout(checkDefender, 8000);
+        addLog('Windows', 'Defender', r.output, 'success');
+        setTimeout(checkDefender, 5000);
+        setTimeout(checkDefender, 12000);
       } else {
-        addLog('Windows', 'Defender Control', String(r.output), 'error');
+        addLog('Windows', 'Defender', String(r.output), 'error');
       }
       setDefenderLoading(false);
     });
@@ -82,7 +82,7 @@ const checkDefender = useCallback(async () => {
       open: true,
       tool: 'defender-repair',
       title: 'Reparar Windows Defender',
-      message: 'Se ejecutará DISM RestoreHealth + SFC /scannow como administrador para reparar los componentes dañados de Defender.\n\nâ±ï¸ Puede tardar 15-30 minutos. Reinicia después.\n\n¿Continuar?',
+      message: 'Se ejecutará DISM RestoreHealth + SFC /scannow como administrador para reparar los componentes dañados de Defender.\n\nPuede tardar 15-30 minutos. Reinicia después.\n\n¿Continuar?',
     });
   };
 
@@ -286,16 +286,24 @@ const checkDefender = useCallback(async () => {
                 )}
               </div>
               <p className="text-[11px] text-dark-400 mt-1">
-                Panel de Defender Control integrado. Dentro del programa, presiona el botón grande para Activar o Desactivar.
+                Activación o desactivación con un clic. Si Tamper Protection está activado, desactívalo primero en Seguridad de Windows.
               </p>
               <div className="flex gap-2 mt-3 flex-wrap">
                 <button
-                  onClick={openDefenderControl}
-                  disabled={defenderLoading}
-                  className="flex items-center gap-1.5 px-3 py-1.5 bg-orange-600 hover:bg-orange-700 text-neutral-900 text-xs font-medium rounded-lg transition-all duration-200 disabled:opacity-50"
+                  onClick={() => toggleDefender('disable')}
+                  disabled={defenderLoading || defenderEnabled === false}
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white text-xs font-medium rounded-lg transition-all duration-200 disabled:opacity-40"
+                >
+                  <ShieldOff size={13} />
+                  Desactivar
+                </button>
+                <button
+                  onClick={() => toggleDefender('enable')}
+                  disabled={defenderLoading || defenderEnabled === true}
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-green-600 hover:bg-green-700 text-white text-xs font-medium rounded-lg transition-all duration-200 disabled:opacity-40"
                 >
                   <Shield size={13} />
-                  Abrir panel de control
+                  Activar
                 </button>
                 <button
                   onClick={checkDefender}

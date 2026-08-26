@@ -1,5 +1,6 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Page } from '../types';
+import { Sun, Moon, Download } from 'lucide-react';
 import {
   LayoutDashboard,
   Cpu,
@@ -24,6 +25,7 @@ interface HeaderProps {
 
 const menuItems: { id: Page; label: string; icon: React.ReactNode }[] = [
   { id: 'dashboard', label: 'Diagnóstico', icon: <LayoutDashboard size={14} /> },
+  { id: 'install', label: 'Instalar', icon: <Download size={14} /> },
   { id: 'windows', label: 'Windows', icon: <Monitor size={14} /> },
   { id: 'office', label: 'Office', icon: <FileText size={14} /> },
   { id: 'browsers', label: 'Navegadores', icon: <Globe size={14} /> },
@@ -36,6 +38,18 @@ const menuItems: { id: Page; label: string; icon: React.ReactNode }[] = [
 ];
 
 export function Header({ computerName, username, isAdmin, version, currentPage, onNavigate }: HeaderProps) {
+  const [theme, setTheme] = useState<'light' | 'dark'>(() => {
+    const saved = localStorage.getItem('stt-theme');
+    return saved === 'dark' ? 'dark' : 'light';
+  });
+
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', theme);
+    localStorage.setItem('stt-theme', theme);
+  }, [theme]);
+
+  const toggleTheme = () => setTheme(t => (t === 'light' ? 'dark' : 'light'));
+
   return (
     <header className="select-none z-10 border-b border-neutral-300 bg-neutral-100">
       {/* Fila 1: logo, tabs, estado, controles de ventana */}
@@ -82,6 +96,13 @@ export function Header({ computerName, username, isAdmin, version, currentPage, 
 
         {/* Controles de ventana */}
         <div className="flex items-center -mr-1 flex-shrink-0">
+          <button
+            onClick={toggleTheme}
+            className="p-2 hover:bg-neutral-200 transition-colors text-neutral-600 hover:text-neutral-900 rounded mr-1"
+            title={theme === 'light' ? 'Modo oscuro' : 'Modo claro'}
+          >
+            {theme === 'light' ? <Moon size={15} /> : <Sun size={15} />}
+          </button>
           <button
             onClick={() => window.electronAPI?.minimize()}
             className="p-2 hover:bg-neutral-300 transition-colors text-neutral-500 hover:text-neutral-900 rounded"

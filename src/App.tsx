@@ -11,6 +11,7 @@ import {
   SettingsPage,
   ChrisTitusPage,
   UninstallerPage,
+  InstallPage,
 } from './pages';
 import { LogProvider, useLogs } from './context/LogContext';
 import { Page, CpuInfo, RamInfo, DiskInfo, GpuInfo, WindowsInfo, NetworkInfo } from './types';
@@ -90,6 +91,8 @@ function AppContent() {
             loading={loading}
           />
         );
+      case 'install':
+        return <InstallPage />;
       case 'windows':
         return <WindowsPage />;
       case 'office':

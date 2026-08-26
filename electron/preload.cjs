@@ -31,6 +31,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
   // Tools
   runCommand: (command) => ipcRenderer.invoke('run-command', command),
+  wingetInstall: (wingetId) => ipcRenderer.invoke('winget-install', wingetId),
+  wingetList: () => ipcRenderer.invoke('winget-list'),
   executeTool: (tool, args) => ipcRenderer.invoke('execute-tool', { tool, args }),
 
   // Download

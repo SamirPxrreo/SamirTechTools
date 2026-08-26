@@ -8,3 +8,4 @@ export { NetworkPage } from './NetworkPage';
 export { SettingsPage } from './SettingsPage';
 export { ChrisTitusPage } from './ChrisTitusPage';
 export { UninstallerPage } from './UninstallerPage';
+export { InstallPage } from './InstallPage';
