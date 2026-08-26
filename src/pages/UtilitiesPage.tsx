@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Wrench, Monitor, Activity, ListTodo, Server, HardDrive, Settings, Wifi, Globe, RefreshCw, Trash2, Shield, Zap } from 'lucide-react';
+import { Wrench, Monitor, Activity, ListTodo, Server, HardDrive, Settings, Wifi, Disc, Globe, RefreshCw, Trash2, Shield, Zap } from 'lucide-react';
 import { ToolCard, ConsoleOutput, ConfirmModal } from '../components';
 import { useLogs } from '../context/LogContext';
 
@@ -115,6 +115,26 @@ export function UtilitiesPage() {
             accentColor="cyan"
             primaryAction="Abrir"
             primaryOnClick={() => openTool('ms-settings:', 'Configuración')}
+          />
+        </div>
+      </div>
+
+      {/* Descargas ISO */}
+      <div>
+        <h2 className="text-sm font-semibold text-dark-200 mb-3 flex items-center gap-2">
+          <Disc size={14} /> Descargas ISO
+        </h2>
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+          <ToolCard
+            icon={<Disc size={20} />}
+            title="UUP dump - ISOs de Windows"
+            description="Descarga ISOs oficiales de Windows 10/11 en cualquier versión, build e idioma directamente de los servidores de Microsoft"
+            accentColor="blue"
+            primaryAction="Abrir UUP dump"
+            primaryOnClick={() => {
+              window.electronAPI.openExternal('https://uupdump.net/known.php');
+              addLog('Utilidades', 'UUP dump', 'Abriendo uupdump.net/known.php', 'info');
+            }}
           />
         </div>
       </div>
