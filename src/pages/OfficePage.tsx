@@ -103,6 +103,67 @@ export function OfficePage() {
     });
   };
 
+  // OFFICE 2016 (ZIP de Mediafire -> extraer al Escritorio -> setup.exe)
+  const startOffice2016 = async () => {
+    const o = OFFICE.OFFICE_2016;
+    setConfirmModal({
+      open: true,
+      title: `Descargar ${o.name}`,
+      message: `Se descargará el instalador ZIP (${o.size}) y se extraerá al Escritorio. Al terminar se abrirá setup.exe para que sigas la instalación.\n\n¿Continuar?`,
+      onConfirm: async () => {
+        setConfirmModal({ ...confirmModal, open: false });
+        setLoading(true);
+        setOutput('');
+        setProgress(null);
+        try {
+          const desktop = await window.electronAPI.runCommand(
+            'powershell -NoProfile -Command "[Environment]::GetFolderPath(\'Desktop\')"'
+          );
+          const desktopPath = desktop.output.trim() || 'C:\\Users\\Public\\Desktop';
+          const zipPath = `${desktopPath}\\${o.zipName}`;
+          const extractDir = `${desktopPath}\\Office2016`;
+
+          setDownloadStatus('Descargando Office 2016...');
+          log('Office', 'Descargando', `${o.name} (${o.size}) desde Mediafire`, 'info');
+          const dl = await window.electronAPI.downloadFile(o.url, zipPath);
+          if (!dl.success) {
+            log('Office', 'Error', `No se pudo descargar el ZIP. El enlace puede haber expirado: ${dl.output}`, 'error');
+            setLoading(false);
+            return;
+          }
+          log('Office', 'Descargado', `${o.zipName} (${formatBytes(dl.size || 0)})`, 'success');
+
+          setDownloadStatus('Extrayendo al Escritorio...');
+          log('Office', 'Extrayendo', `ZIP -> ${extractDir}`, 'info');
+          const ex = await window.electronAPI.runCommand(
+            `powershell -NoProfile -ExecutionPolicy Bypass -Command "Expand-Archive -Path '${zipPath}' -DestinationPath '${extractDir}' -Force"`
+          );
+          if (!ex.success) {
+            log('Office', 'Error', `No se pudo extraer: ${ex.output}`, 'error');
+            setLoading(false);
+            return;
+          }
+          log('Office', 'Extraído', `Instalador listo en ${extractDir}`, 'success');
+
+          setDownloadStatus('Abriendo setup.exe...');
+          log('Office', 'Instalando', 'Abriendo setup.exe (sigue el asistente en pantalla)', 'info');
+          const run = await window.electronAPI.runCommand(
+            `powershell -NoProfile -ExecutionPolicy Bypass -Command "Start-Process -FilePath '${extractDir}\\${o.innerFolder}\\setup.exe' -Verb RunAs"`
+          );
+          if (run.success) {
+            log('Office', 'Instalación', 'Setup abierto. Sigue las instrucciones en pantalla.', 'success');
+          } else {
+            log('Office', 'Instalación', `Abre manualmente: ${extractDir}\\${o.innerFolder}\\setup.exe`, 'warning');
+          }
+        } catch (err) {
+          log('Office', 'Error', String(err), 'error');
+        }
+        setLoading(false);
+        setDownloadStatus('');
+      }
+    });
+  };
+
   // OFFLINE INSTALL
   const startOfflineInstall = async (version: typeof offlineVersions[0]) => {
     setConfirmModal({
@@ -343,6 +404,17 @@ export function OfficePage() {
                 loading={loading}
               />
             ))}
+            <ToolCard
+              icon={<HardDrive size={20} />}
+              title={OFFICE.OFFICE_2016.name}
+              description={`Descarga el ZIP de Mediafire (${OFFICE.OFFICE_2016.size}), lo extrae al Escritorio y abre setup.exe para que sigas el asistente`}
+              status="warning"
+              statusText="ZIP + asistente"
+              accentColor="orange"
+              primaryAction="Descargar e instalar"
+              primaryOnClick={startOffice2016}
+              loading={loading}
+            />
           </div>
         </div>
       )}

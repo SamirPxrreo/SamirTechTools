@@ -15,6 +15,15 @@ export const PATHS = {
 export const OFFICE = {
   SETUP_URL: 'https://officecdn.microsoft.com/pr/wsus/setup.exe',
 
+  // Office 2016 Professional Plus 32-bit (ZIP en Mediafire, se extrae al Escritorio)
+  OFFICE_2016: {
+    name: 'Office 2016 Professional Plus (32-bit)',
+    url: 'https://download1325.mediafire.com/5zv2bk3bb0egc4SPwWu8P6CZKojgct7P6TO0W4qFfOfNcUs78vr4RCLGHEdmGFPTFOrYMi71N8DgFpw7cWkYaAbK4DkQ2SPXF1OqguZG5lYXmO2kfJM1ey2EKZ1poXS7-17rUi3BjiMQDuJ323Z86_RK9VOGerQ18LVaGEb8QtNl28hO/vfmqp5ciu1c1bmr/Office_Professional_Plus_2016_32bits_Spanish.zip',
+    zipName: 'Office_Professional_Plus_2016_32bits_Spanish.zip',
+    innerFolder: 'Office_Professional_Plus_2016_32bits_Spanish',
+    size: '~720 MB',
+  },
+
   // Configuraciones XML por versión (64-bit, es-mx, clave KMS incorporada)
   ONLINE_VERSIONS: [
     {
