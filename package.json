@@ -32,7 +32,8 @@
         { "target": "portable", "arch": ["x64"] }
       ],
       "icon": "public/icon.png",
-      "signAndEditExecutable": false
+      "signAndEditExecutable": true,
+      "requestedExecutionLevel": "highestAvailable"
     },
     "extraResources": [
       {

@@ -9,6 +9,9 @@ export function UninstallerPage() {
   const [apps, setApps] = useState<AllApp[]>([]);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [search, setSearch] = useState('');
+  const [publisherFilter, setPublisherFilter] = useState('');
+  const [dateFilter, setDateFilter] = useState<'all' | 'week' | 'month' | '3months' | 'year' | 'older'>('all');
+  const [sortBy, setSortBy] = useState<'name' | 'date' | 'size'>('name');
   const [loading, setLoading] = useState(true);
   const [uninstalling, setUninstalling] = useState(false);
   const [output, setOutput] = useState('');
@@ -29,11 +32,60 @@ export function UninstallerPage() {
 
   useEffect(() => { loadApps(); }, []);
 
+  // Convierte InstallDate del registro (yyyyMMdd o formatos varios) a Date o null
+  const parseDate = (raw?: string): Date | null => {
+    if (!raw) return null;
+    const d = raw.trim();
+    if (/^\d{8}$/.test(d)) {
+      const dt = new Date(`${d.slice(0, 4)}-${d.slice(4, 6)}-${d.slice(6, 8)}`);
+      return isNaN(dt.getTime()) ? null : dt;
+    }
+    const dt = new Date(d);
+    return isNaN(dt.getTime()) ? null : dt;
+  };
+
   const filtered = useMemo(() => {
-    if (!search.trim()) return apps;
-    const q = search.toLowerCase();
-    return apps.filter(a => a.name.toLowerCase().includes(q));
-  }, [apps, search]);
+    const q = search.trim().toLowerCase();
+    const pub = publisherFilter.trim().toLowerCase();
+    const now = Date.now();
+    const ranges: Record<string, number> = {
+      week: 7 * 864e5, month: 30 * 864e5, '3months': 90 * 864e5, year: 365 * 864e5,
+    };
+    let list = apps.filter(a => {
+      if (q && !a.name.toLowerCase().includes(q) && !(a.publisher || '').toLowerCase().includes(q)) return false;
+      if (pub && !(a.publisher || '').toLowerCase().includes(pub)) return false;
+      if (dateFilter !== 'all') {
+        const d = parseDate(a.installDate);
+        if (!d) return dateFilter === 'older' ? false : false;
+        const age = now - d.getTime();
+        if (dateFilter === 'older') { if (age <= ranges.year) return false; }
+        else if (age > ranges[dateFilter]) return false;
+      }
+      return true;
+    });
+    list = [...list].sort((a, b) => {
+      if (sortBy === 'date') {
+        const da = parseDate(a.installDate)?.getTime() || 0;
+        const db = parseDate(b.installDate)?.getTime() || 0;
+        return db - da;
+      }
+      if (sortBy === 'size') return (b.sizeKB || 0) - (a.sizeKB || 0);
+      return a.name.localeCompare(b.name);
+    });
+    return list;
+  }, [apps, search, publisherFilter, dateFilter, sortBy]);
+
+  const formatDate = (raw?: string) => {
+    const d = parseDate(raw);
+    return d ? d.toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
+  };
+
+  const formatSize = (kb?: number) => {
+    if (!kb || kb <= 0) return '—';
+    if (kb >= 1024 * 1024) return `${(kb / 1024 / 1024).toFixed(1)} GB`;
+    if (kb >= 1024) return `${(kb / 1024).toFixed(1)} MB`;
+    return `${kb} KB`;
+  };
 
   const toggleApp = (name: string) => {
     setSelected(prev => {
@@ -93,10 +145,38 @@ export function UninstallerPage() {
             type="text"
             value={search}
             onChange={e => setSearch(e.target.value)}
-            placeholder="Buscar aplicación..."
+            placeholder="Buscar por nombre o editor..."
             className="w-full bg-dark-800 border border-dark-700 rounded-lg pl-9 pr-3 py-2 text-sm text-neutral-900 placeholder-dark-500 focus:outline-none focus:border-primary-500"
           />
         </div>
+        <input
+          type="text"
+          value={publisherFilter}
+          onChange={e => setPublisherFilter(e.target.value)}
+          placeholder="Filtrar por editor..."
+          className="bg-dark-800 border border-dark-700 rounded-lg px-3 py-2 text-sm text-neutral-900 placeholder-dark-500 focus:outline-none focus:border-primary-500 w-40"
+        />
+        <select
+          value={dateFilter}
+          onChange={e => setDateFilter(e.target.value as typeof dateFilter)}
+          className="bg-dark-800 border border-dark-700 rounded-lg px-2 py-2 text-xs text-neutral-900 focus:outline-none focus:border-primary-500"
+        >
+          <option value="all">Cualquier fecha</option>
+          <option value="week">Instalado esta semana</option>
+          <option value="month">Instalado este mes</option>
+          <option value="3months">Últimos 3 meses</option>
+          <option value="year">Último año</option>
+          <option value="older">Más de un año</option>
+        </select>
+        <select
+          value={sortBy}
+          onChange={e => setSortBy(e.target.value as typeof sortBy)}
+          className="bg-dark-800 border border-dark-700 rounded-lg px-2 py-2 text-xs text-neutral-900 focus:outline-none focus:border-primary-500"
+        >
+          <option value="name">Ordenar: Nombre</option>
+          <option value="date">Ordenar: Fecha</option>
+          <option value="size">Ordenar: Tamaño</option>
+        </select>
         <button
           onClick={toggleAll}
           disabled={loading || filtered.length === 0}
@@ -167,8 +247,12 @@ export function UninstallerPage() {
                 <div className="flex-1 min-w-0">
                   <p className="text-xs font-medium text-neutral-900 truncate">{app.name}</p>
                   <p className="text-[10px] text-dark-500 truncate">
-                    v{app.version}{app.location ? ` • ${app.location}` : ''}
+                    v{app.version}{app.publisher ? ` • ${app.publisher}` : ''}
                   </p>
+                </div>
+                <div className="flex-shrink-0 text-right hidden md:block">
+                  <p className="text-[10px] text-dark-400">{formatDate(app.installDate)}</p>
+                  <p className="text-[10px] text-dark-500">{formatSize(app.sizeKB)}</p>
                 </div>
                 {!app.uninstallString && (
                   <span className="text-[10px] text-yellow-500 flex-shrink-0">sin desinstalador</span>

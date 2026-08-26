@@ -259,7 +259,7 @@ ipcMain.handle('get-installed-apps', async (event, category) => {
 ipcMain.handle('get-all-apps', async () => {
   try {
     const r = await ps(
-      'Get-ItemProperty HKLM:\\Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\*, HKLM:\\Software\\WOW6432Node\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\*, HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\* -ErrorAction SilentlyContinue | Where-Object { $_.DisplayName } | Sort-Object DisplayName -Unique | ForEach-Object { ($_.DisplayName -replace "\\|"," ") + "|" + ($_.DisplayVersion) + "|" + ($_.InstallLocation -replace "\\|"," ") + "|" + ($_.UninstallString -replace "\\|"," ") + "|" + ($_.SystemComponent) }'
+      'Get-ItemProperty HKLM:\\Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\*, HKLM:\\Software\\WOW6432Node\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\*, HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\* -ErrorAction SilentlyContinue | Where-Object { $_.DisplayName } | Sort-Object DisplayName -Unique | ForEach-Object { ($_.DisplayName -replace "\\|"," ") + "|" + ($_.DisplayVersion) + "|" + ($_.InstallLocation -replace "\\|"," ") + "|" + ($_.UninstallString -replace "\\|"," ") + "|" + ($_.SystemComponent) + "|" + ($_.InstallDate) + "|" + ($(if ($_.Publisher) { $_.Publisher } else { "" }) -replace "\\|"," ") + "|" + ($_.EstimatedSize) }'
     );
     const lines = r.output.trim().split('\n').filter(l => l.trim());
     const apps = [];
@@ -274,6 +274,9 @@ ipcMain.handle('get-all-apps', async () => {
         location: (p[2] || '').trim(),
         uninstallString: (p[3] || '').trim(),
         systemComponent: (p[4] || '0').trim() === '1',
+        installDate: (p[5] || '').trim(),
+        publisher: (p[6] || '').trim(),
+        sizeKB: parseInt(p[7]) || 0,
       });
     }
     return apps;

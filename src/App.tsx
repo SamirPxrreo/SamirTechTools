@@ -120,11 +120,11 @@ function AppContent() {
         username={username}
         isAdmin={isAdmin}
         version="1.0.0"
-        currentPage={currentPage}
-        onNavigate={setCurrentPage}
       />
       <div className="flex flex-1 overflow-hidden">
         <Sidebar
+          currentPage={currentPage}
+          onNavigate={setCurrentPage}
           computerName={computerName}
           username={username}
           isAdmin={isAdmin}

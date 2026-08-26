@@ -88,6 +88,9 @@ export interface AllApp {
   location: string;
   uninstallString: string;
   systemComponent: boolean;
+  installDate?: string;
+  publisher?: string;
+  sizeKB?: number;
 }
 
 export interface DriverInfo {
