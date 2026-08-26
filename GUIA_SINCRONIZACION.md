@@ -91,6 +91,9 @@ Y viceversa: cuando termines en casa haces `add + commit + push`, y al llegar al
 | Subir cambios a GitHub | `git push` |
 | Bajar cambios de la otra PC | `git pull` |
 | Ver historial | `git log --oneline` |
+| **Subir TODO (cuando digas "sube a github")** | `git push` + `npm run electron:build` (admin) + `gh release upload v1.0.1 release\*.exe --clobber` |
+
+> **Nota "sube a github":** acordado con el agente: no es solo `git push`, es publicar release completa (instalador + portable + código + MDs). Ver `docs/CONTEXTO.md` > Build y release.
 
 ---
 
