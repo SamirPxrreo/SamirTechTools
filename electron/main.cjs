@@ -541,10 +541,10 @@ ipcMain.handle('execute-tool', async (event, { tool, args }) => {
 
 ipcMain.handle('run-command', async (event, command) => await runCommand(command));
 
-// Instalar app via winget (timeout largo, 15 min)
+// Instalar app via winget (timeout largo, 15 min) - usa --source winget para evitar error de certificado msstore (0x8a15005e en VMs)
 ipcMain.handle('winget-install', async (event, wingetId) => {
   return new Promise((resolve) => {
-    exec(`winget install --id "${wingetId}" -e --accept-source-agreements --accept-package-agreements --silent --disable-interactivity`,
+    exec(`winget install --id "${wingetId}" -e --source winget --accept-source-agreements --accept-package-agreements --silent --disable-interactivity`,
       { encoding: 'utf-8', maxBuffer: 1024 * 1024 * 10, timeout: 900000 },
       (error, stdout, stderr) => {
         if (error && error.killed) resolve({ success: false, output: 'Timeout: la instalacion tardo demasiado', code: -1 });
