@@ -512,16 +512,6 @@ function downloadFile(url, destPath, onProgress) {
   });
 }
 
-// Download file synchronously (returns promise, no progress events)
-function downloadFileSync(url, destPath) {
-  return new Promise((resolve) => {
-    downloadFile(url, destPath, null).then(
-      (r) => resolve({ success: true }),
-      (err) => resolve({ success: false, error: String(err) })
-    );
-  });
-}
-
 // Write text file (UTF-8)
 ipcMain.handle('write-file', async (event, { path, content }) => {
   try {
@@ -533,7 +523,7 @@ ipcMain.handle('write-file', async (event, { path, content }) => {
   }
 });
 
-// Windows Defender: dControl de Sordum (si esta presente) con fallback open-source
+// Windows Defender: GUI de Defender Control (Sordum) incluida en resources
 ipcMain.handle('defender-tool', async (event, action) => {
   const path = require('path');
   let dir;
@@ -542,34 +532,16 @@ ipcMain.handle('defender-tool', async (event, action) => {
   } else {
     dir = path.join(__dirname, '..', 'resources', 'defender-control');
   }
-  const dControl = path.join(dir, 'dControl.exe');
-  const disableExe = path.join(dir, 'disable-defender.exe');
-  const enableExe = path.join(dir, 'enable-defender.exe');
+  const exe = path.join(dir, 'dControl.exe');
   try {
-    // Preferir dControl de Sordum si el usuario lo coloco en la carpeta
-    if (fs.existsSync(dControl)) {
-      await ps(`Start-Process -FilePath '${dControl}' -Verb RunAs`);
-      return { success: true, output: 'Defender Control (Sordum) abierto. Presiona el boton grande para Activar o Desactivar.' };
-    }
-    if (!fs.existsSync(disableExe) || !fs.existsSync(enableExe)) {
+    if (!fs.existsSync(exe)) {
       fs.mkdirSync(dir, { recursive: true });
-      const base = 'https://github.com/pgkt04/defender-control/releases/download/v2.0/';
-      const d1 = await downloadFileSync(base + 'disable-defender.exe', disableExe);
-      const d2 = await downloadFileSync(base + 'enable-defender.exe', enableExe);
-      if (!d1.success || !d2.success) {
-        return { success: false, output: 'No se pudieron descargar las herramientas de Defender. Verifica tu conexion.' };
-      }
-    }
-    if (action === 'disable') {
-      await ps(`Start-Process -FilePath '${disableExe}' -Verb RunAs -Wait`);
-      return { success: true, output: 'Comando de desactivacion enviado. Actualiza el estado en unos segundos.' };
-    } else if (action === 'enable') {
-      await ps(`Start-Process -FilePath '${enableExe}' -Verb RunAs -Wait`);
-      return { success: true, output: 'Comando de activacion enviado. Actualiza el estado en unos segundos.' };
-    } else {
       shell.openPath(dir);
-      return { success: true, output: 'Carpeta de herramientas abierta. Coloca dControl.exe ahi para usar Sordum.' };
+      shell.openExternal('https://www.sordum.org/9480/defender-control-v2-1/');
+      return { success: false, output: 'No se encontro dControl.exe. Se abrio la carpeta y la pagina de descarga de Sordum. Coloca dControl.exe y dControl.ini ahi.' };
     }
+    await ps(`Start-Process -FilePath '${exe}' -Verb RunAs`);
+    return { success: true, output: 'Defender Control abierto. Presiona el boton grande para Activar o Desactivar.' };
   } catch (err) {
     return { success: false, output: String(err) };
   }

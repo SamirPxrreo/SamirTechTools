@@ -286,7 +286,7 @@ const checkDefender = useCallback(async () => {
                 )}
               </div>
               <p className="text-[11px] text-dark-400 mt-1">
-                Abre Defender Control de Sordum (coloca dControl.exe en resources\defender-control, descárgalo de sordum.org). Si no está, usa los botones Activar/Desactivar directos.
+                Panel de Defender Control (Sordum) incluido. Presiona el botón grande dentro del programa para Activar o Desactivar.
               </p>
               <div className="flex gap-2 mt-3 flex-wrap">
                 <button
@@ -296,22 +296,6 @@ const checkDefender = useCallback(async () => {
                 >
                   <Shield size={13} />
                   Abrir Defender Control (Sordum)
-                </button>
-                <button
-                  onClick={() => toggleDefender('disable')}
-                  disabled={defenderLoading || defenderEnabled === false}
-                  className="flex items-center gap-1.5 px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white text-xs font-medium rounded-lg transition-all duration-200 disabled:opacity-40"
-                >
-                  <ShieldOff size={13} />
-                  Desactivar
-                </button>
-                <button
-                  onClick={() => toggleDefender('enable')}
-                  disabled={defenderLoading || defenderEnabled === true}
-                  className="flex items-center gap-1.5 px-3 py-1.5 bg-green-600 hover:bg-green-700 text-white text-xs font-medium rounded-lg transition-all duration-200 disabled:opacity-40"
-                >
-                  <Shield size={13} />
-                  Activar
                 </button>
                 <button
                   onClick={checkDefender}
