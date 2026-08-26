@@ -1,6 +1,6 @@
 {
   "name": "samirtechtools",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "SamirTechTools - Centro de diagnóstico y mantenimiento informático",
   "type": "module",
   "main": "electron/main.cjs",

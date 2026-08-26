@@ -119,7 +119,7 @@ function AppContent() {
         computerName={computerName}
         username={username}
         isAdmin={isAdmin}
-        version="1.0.0"
+        version="1.0.1"
       />
       <div className="flex flex-1 overflow-hidden">
         <Sidebar
