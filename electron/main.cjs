@@ -280,7 +280,7 @@ ipcMain.handle('get-installed-apps', async (event, category) => {
 ipcMain.handle('get-all-apps', async () => {
   try {
     const r = await ps(
-      'Get-ItemProperty HKLM:\\Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\*, HKLM:\\Software\\WOW6432Node\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\*, HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\* -ErrorAction SilentlyContinue | Where-Object { $_.DisplayName } | Sort-Object DisplayName -Unique | ForEach-Object { ($_.DisplayName -replace "\\|"," ") + "|" + ($_.DisplayVersion) + "|" + ($_.InstallLocation -replace "\\|"," ") + "|" + ($_.UninstallString -replace "\\|"," ") + "|" + ($_.SystemComponent) + "|" + ($_.InstallDate) + "|" + ($(if ($_.Publisher) { $_.Publisher } else { "" }) -replace "\\|"," ") + "|" + ($_.EstimatedSize) }'
+      'Get-ItemProperty HKLM:\\Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\*, HKLM:\\Software\\WOW6432Node\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\*, HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\* -ErrorAction SilentlyContinue | Where-Object { $_.DisplayName } | Sort-Object DisplayName -Unique | ForEach-Object { ($_.DisplayName -replace "\\|"," ") + "|" + ($_.DisplayVersion) + "|" + ($_.InstallLocation -replace "\\|"," ") + "|" + ($_.UninstallString -replace "\\|"," ") + "|" + ($_.SystemComponent) + "|" + ($_.InstallDate) + "|" + ($(if ($_.Publisher) { $_.Publisher } else { "" }) -replace "\\|"," ") + "|" + ($_.EstimatedSize) + "|" + ($(if ($_.DisplayIcon) { $_.DisplayIcon } else { "" }) -replace "\\|"," ") }'
     );
     const lines = r.output.trim().split('\n').filter(l => l.trim());
     const apps = [];
@@ -298,11 +298,77 @@ ipcMain.handle('get-all-apps', async () => {
         installDate: (p[5] || '').trim(),
         publisher: (p[6] || '').trim(),
         sizeKB: parseInt(p[7]) || 0,
+        displayIcon: (p[8] || '').trim(),
       });
     }
     return apps;
   } catch {
     return [];
+  }
+});
+
+// Icono de app: extrae icono del exe (DisplayIcon o InstallLocation) - cache en memoria
+const _iconCache = new Map();
+ipcMain.handle('get-app-icon', async (event, { displayIcon, location, uninstallString }) => {
+  const key = (displayIcon || '') + '|' + (location || '') + '|' + (uninstallString || '');
+  if (_iconCache.has(key)) return _iconCache.get(key);
+  let iconPath = '';
+  try {
+    // 1. DisplayIcon (puede traer ",0" o "%ProgramFiles%")
+    if (displayIcon) {
+      let p = displayIcon.split(',')[0].trim().replace(/^"/, '').replace(/"$/, '');
+      // Expandir variables de entorno %ProgramFiles% etc
+      p = p.replace(/%([^%]+)%/g, (_, n) => process.env[n] || process.env[n.toUpperCase()] || `%${n}%`);
+      if (p && fs.existsSync(p)) iconPath = p;
+      else if (p && !path.isExtname(p) && fs.existsSync(p + '.exe')) iconPath = p + '.exe';
+    }
+    // 2. InstallLocation
+    if (!iconPath && location && fs.existsSync(location)) {
+      try {
+        const files = fs.readdirSync(location).filter(f => f.toLowerCase().endsWith('.exe'));
+        // Filtrar uninstallers para preferir el exe principal
+        const filtered = files.filter(f => !/uninstall|unins|setup/i.test(f));
+        const candidates = filtered.length ? filtered : files;
+        let best = '';
+        let bestSize = 0;
+        for (const f of candidates.slice(0, 8)) {
+          const fp = path.join(location, f);
+          try { const s = fs.statSync(fp).size; if (s > bestSize) { bestSize = s; best = fp; } } catch {}
+        }
+        if (best) iconPath = best;
+      } catch {}
+    }
+    // 3. UninstallString (a veces apunta al exe principal o desinstalador)
+    if (!iconPath && uninstallString) {
+      const m = uninstallString.match(/"([^"]+\.exe)"/i) || uninstallString.match(/([A-Za-z]:\\[^\s"']+\.exe)/i);
+      if (m && m[1] && fs.existsSync(m[1])) {
+        // Si es uninstaller, intentar buscar exe hermano en la misma carpeta
+        const dir = path.dirname(m[1]);
+        if (/uninstall|unins/i.test(path.basename(m[1])) && fs.existsSync(dir)) {
+          try {
+            const siblings = fs.readdirSync(dir).filter(f => f.toLowerCase().endsWith('.exe') && !/uninstall|unins/i.test(f));
+            if (siblings.length) {
+              let best = ''; let bestSize = 0;
+              for (const f of siblings.slice(0, 5)) {
+                const fp = path.join(dir, f);
+                try { const s = fs.statSync(fp).size; if (s > bestSize) { bestSize = s; best = fp; } } catch {}
+              }
+              if (best) iconPath = best; else iconPath = m[1];
+            } else iconPath = m[1];
+          } catch { iconPath = m[1]; }
+        } else iconPath = m[1];
+      }
+    }
+    if (!iconPath) { _iconCache.set(key, null); return null; }
+    const img = await app.getFileIcon(iconPath, { size: 'small' });
+    // getFileIcon devuelve icono genérico transparente si falla -> detectar vacío
+    if (img.isEmpty()) { _iconCache.set(key, null); return null; }
+    const dataUrl = img.toDataURL();
+    _iconCache.set(key, dataUrl);
+    return dataUrl;
+  } catch {
+    _iconCache.set(key, null);
+    return null;
   }
 });
 

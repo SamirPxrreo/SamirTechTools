@@ -91,6 +91,7 @@ export interface AllApp {
   installDate?: string;
   publisher?: string;
   sizeKB?: number;
+  displayIcon?: string;
 }
 
 export interface DriverInfo {
@@ -159,6 +160,7 @@ export interface ElectronAPI {
   getNetworkInfo: () => Promise<NetworkInfo>;
   getInstalledApps: (category: string) => Promise<InstalledApp[]>;
   getAllApps: () => Promise<AllApp[]>;
+  getAppIcon: (displayIcon?: string, location?: string, uninstallString?: string) => Promise<string | null>;
   uninstallApps: (apps: { name: string; uninstallString: string }[]) => Promise<{ success: boolean; output: string }>;
   runCommand: (command: string) => Promise<{ success: boolean; output: string; code: number }>;
   wingetInstall: (wingetId: string) => Promise<{ success: boolean; output: string; code: number }>;

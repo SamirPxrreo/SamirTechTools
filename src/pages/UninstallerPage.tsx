@@ -1,8 +1,21 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { Trash2, RefreshCw, Search, CheckSquare, Square, Loader } from 'lucide-react';
+import { Trash2, RefreshCw, Search, CheckSquare, Square, Loader, Package } from 'lucide-react';
 import { ConsoleOutput, ConfirmModal } from '../components';
 import { useLogs } from '../context/LogContext';
 import { AllApp } from '../types';
+
+function AppIcon({ app }: { app: AllApp }) {
+  const [src, setSrc] = useState<string | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    window.electronAPI.getAppIcon(app.displayIcon, app.location, app.uninstallString).then(url => {
+      if (!cancelled && url) setSrc(url);
+    });
+    return () => { cancelled = true; };
+  }, [app.displayIcon, app.location, app.uninstallString]);
+  if (src) return <img src={src} alt="" className="w-7 h-7 flex-shrink-0 rounded-sm object-contain" loading="lazy" />;
+  return <div className="w-7 h-7 flex-shrink-0 rounded bg-dark-800 border border-dark-700 flex items-center justify-center"><Package size={12} className="text-dark-500" /></div>;
+}
 
 export function UninstallerPage() {
   const { addLog } = useLogs();
@@ -244,6 +257,7 @@ export function UninstallerPage() {
                     ? <CheckSquare size={17} className="text-primary-400" />
                     : <Square size={17} className="text-dark-500" />}
                 </button>
+                <AppIcon app={app} />
                 <div className="flex-1 min-w-0">
                   <p className="text-xs font-medium text-neutral-900 truncate">{app.name}</p>
                   <p className="text-[10px] text-dark-500 truncate">

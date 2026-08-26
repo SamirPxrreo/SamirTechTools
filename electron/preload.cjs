@@ -27,6 +27,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // Apps
   getInstalledApps: (category) => ipcRenderer.invoke('get-installed-apps', category),
   getAllApps: () => ipcRenderer.invoke('get-all-apps'),
+  getAppIcon: (displayIcon, location, uninstallString) => ipcRenderer.invoke('get-app-icon', { displayIcon, location, uninstallString }),
   uninstallApps: (apps) => ipcRenderer.invoke('uninstall-apps', apps),
 
   // Tools
