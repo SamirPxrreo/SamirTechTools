@@ -123,7 +123,6 @@ export type Page =
   | 'drivers' 
   | 'windows' 
   | 'office' 
-  | 'adobe' 
   | 'browsers' 
   | 'utilities' 
   | 'network' 
@@ -164,6 +163,7 @@ export interface ElectronAPI {
   writeFile: (path: string, content: string) => Promise<{ success: boolean; output?: string }>;
   appendLog: (entry: { timestamp: string; tool: string; action: string; result: string; level: string }) => Promise<{ success: boolean; output?: string }>;
   defenderTool: (action: 'open' | 'disable' | 'enable' | 'status') => Promise<{ success: boolean; output: string }>;
+  clearRam: () => Promise<{ success: boolean; output: string }>;
   onDownloadProgress: (callback: (data: DownloadProgress) => void) => void;
   mountIso: (isoPath: string) => Promise<{ success: boolean; driveLetter: string; output?: string }>;
   unmountIso: (isoPath: string) => Promise<{ success: boolean; output?: string }>;

@@ -1,7 +1,6 @@
 export { Dashboard } from './Dashboard';
 export { WindowsPage } from './WindowsPage';
 export { OfficePage } from './OfficePage';
-export { AdobePage } from './AdobePage';
 export { BrowsersPage } from './BrowsersPage';
 export { DriversPage } from './DriversPage';
 export { UtilitiesPage } from './UtilitiesPage';

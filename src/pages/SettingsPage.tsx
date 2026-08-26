@@ -6,7 +6,7 @@ export function SettingsPage() {
   return (
     <div className="space-y-6 animate-fade-in">
       <div>
-        <h1 className="text-xl font-bold text-white">Configuración</h1>
+        <h1 className="text-xl font-bold text-neutral-900">Configuración</h1>
         <p className="text-xs text-dark-400 mt-1">Preferencias de la aplicación</p>
       </div>
 

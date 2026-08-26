@@ -34,7 +34,7 @@ export function NetworkPage({ networkInfo }: NetworkPageProps) {
   return (
     <div className="space-y-6 animate-fade-in">
       <div>
-        <h1 className="text-xl font-bold text-white">Diagnóstico de Red</h1>
+        <h1 className="text-xl font-bold text-neutral-900">Diagnóstico de Red</h1>
         <p className="text-xs text-dark-400 mt-1">Herramientas de diagnóstico y configuración de red</p>
       </div>
 
@@ -59,7 +59,7 @@ export function NetworkPage({ networkInfo }: NetworkPageProps) {
           value={target}
           onChange={(e) => setTarget(e.target.value)}
           placeholder="IP o dominio (ej: 8.8.8.8)"
-          className="bg-dark-800 border border-dark-600 rounded-lg px-3 py-2 text-sm text-white placeholder-dark-500 focus:outline-none focus:border-primary-500 flex-1 max-w-xs"
+          className="bg-dark-800 border border-dark-600 rounded-lg px-3 py-2 text-sm text-neutral-900 placeholder-dark-500 focus:outline-none focus:border-primary-500 flex-1 max-w-xs"
         />
       </div>
 

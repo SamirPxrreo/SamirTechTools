@@ -56,7 +56,7 @@ export function UtilitiesPage() {
   return (
     <div className="space-y-6 animate-fade-in">
       <div>
-        <h1 className="text-xl font-bold text-white">Utilidades del Sistema</h1>
+        <h1 className="text-xl font-bold text-neutral-900">Utilidades del Sistema</h1>
         <p className="text-xs text-dark-400 mt-1">Herramientas de diagnóstico, mantenimiento y optimización</p>
       </div>
 

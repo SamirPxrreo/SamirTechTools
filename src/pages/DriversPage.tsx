@@ -68,7 +68,7 @@ export function DriversPage() {
     <div className="space-y-6 animate-fade-in">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-xl font-bold text-white">Drivers / Controladores</h1>
+          <h1 className="text-xl font-bold text-neutral-900">Drivers / Controladores</h1>
           <p className="text-xs text-dark-400 mt-1">Información de controladores del sistema</p>
         </div>
         <button

@@ -488,6 +488,16 @@ function downloadFile(url, destPath, onProgress) {
   });
 }
 
+// Download file synchronously (returns promise, no progress events)
+function downloadFileSync(url, destPath) {
+  return new Promise((resolve) => {
+    downloadFile(url, destPath, null).then(
+      (r) => resolve({ success: true }),
+      (err) => resolve({ success: false, error: String(err) })
+    );
+  });
+}
+
 // Write text file (UTF-8)
 ipcMain.handle('write-file', async (event, { path, content }) => {
   try {
@@ -499,9 +509,8 @@ ipcMain.handle('write-file', async (event, { path, content }) => {
   }
 });
 
-// Windows Defender via Defender Control (Sordum) - GUI integrada
+// Windows Defender via Defender Control (Sordum) - GUI integrada con descarga automatica
 ipcMain.handle('defender-tool', async (event, action) => {
-  const fs = require('fs');
   const path = require('path');
   let dir;
   if (app.isPackaged) {
@@ -511,11 +520,61 @@ ipcMain.handle('defender-tool', async (event, action) => {
   }
   const exe = path.join(dir, 'dControl.exe');
   try {
-    if (!fs.existsSync(exe)) return { success: false, output: 'No se encontró dControl.exe' };
-    // Abrir la GUI de Defender Control como administrador
+    // Descargar automaticamente si falta el ejecutable
+    if (!fs.existsSync(exe)) {
+      const zipPath = path.join(os.tmpdir(), 'Defender_Control.zip');
+      await ps(`Remove-Item '${zipPath}' -Force -ErrorAction SilentlyContinue`);
+      const dl = await downloadFileSync('https://www.sordum.org/files/downloads/defender-control/Defender_Control.zip', zipPath);
+      if (!dl.success) return { success: false, output: 'No se pudo descargar Defender Control: ' + dl.error };
+      const ex = await ps(`Expand-Archive -Path '${zipPath}' -DestinationPath '${dir}' -Force; if (Test-Path '${path.join(dir, 'Defender_Control')}') { Copy-Item '${path.join(dir, 'Defender_Control')}\\*' '${dir}' -Force -Recurse }`);
+      if (!ex.success) return { success: false, output: 'No se pudo extraer: ' + ex.output };
+      try { fs.unlinkSync(zipPath); } catch {}
+      if (!fs.existsSync(exe)) {
+        const found = fs.readdirSync(dir, { recursive: true }).find(f => f.toLowerCase() === 'dcontrol.exe');
+        if (found) fs.copyFileSync(path.join(dir, found), exe);
+        else return { success: false, output: 'dControl.exe no encontrado dentro del ZIP descargado' };
+      }
+    }
     await ps(`Start-Process -FilePath '${exe}' -Verb RunAs`);
     return { success: true, output: 'Defender Control abierto. Usa el botón para activar o desactivar.' };
   } catch (err) {
+    return { success: false, output: String(err) };
+  }
+});
+
+// Liberar RAM real: purga la lista standby del sistema (requiere admin)
+ipcMain.handle('clear-ram', async () => {
+  const path = require('path');
+  const scriptPath = path.join(os.tmpdir(), 'stt-clear-ram.ps1');
+  const script = `
+$sig = @'
+using System;
+using System.Runtime.InteropServices;
+public class MemPurge {
+  [DllImport("ntdll.dll")] public static extern int RtlAdjustPrivilege(int p, bool e, bool t, ref bool prev);
+  [DllImport("ntdll.dll")] public static extern int NtSetSystemInformation(int cls, ref int info, int len);
+  public static void Purge() {
+    bool prev = false;
+    RtlAdjustPrivilege(15, true, false, ref prev);
+    int cmd = 4;
+    NtSetSystemInformation(80, ref cmd, 4);
+    cmd = 3;
+    NtSetSystemInformation(80, ref cmd, 4);
+  }
+}
+'@
+Add-Type -TypeDefinition $sig
+[MemPurge]::Purge()
+Write-Host 'OK'
+`;
+  fs.writeFileSync(scriptPath, script, 'utf-8');
+  try {
+    const r = await ps(`Start-Process powershell -Verb RunAs -Wait -WindowStyle Hidden -ArgumentList '-NoProfile','-ExecutionPolicy','Bypass','-File','${scriptPath}'`);
+    try { fs.unlinkSync(scriptPath); } catch {}
+    if (!r.success) return { success: false, output: r.output || 'Se requieren permisos de administrador' };
+    return { success: true, output: 'Memoria standby liberada' };
+  } catch (err) {
+    try { fs.unlinkSync(scriptPath); } catch {}
     return { success: false, output: String(err) };
   }
 });

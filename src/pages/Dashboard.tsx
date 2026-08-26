@@ -103,22 +103,18 @@ export function Dashboard({
     setGeneratingReport(false);
   }, [cpuInfo, ramInfo, diskInfo, gpuInfo, windowsInfo, networkInfo, addLog]);
 
-  // Limpiar RAM (liberar standby list)
+  // Limpiar RAM (purga la standby list del sistema via NtSetSystemInformation)
   const [clearingRAM, setClearingRAM] = useState(false);
   const clearRAM = useCallback(async () => {
     setClearingRAM(true);
-    addLog('RAM', 'Limpiando', 'Liberando memoria standby...', 'info');
+    addLog('RAM', 'Limpiando', 'Liberando memoria standby (requiere admin)...', 'info');
     try {
-      const r = await window.electronAPI.runCommand(
-        'powershell -NoProfile -ExecutionPolicy Bypass -Command "& { $sig = \"[DllImport(\\\"kernel32.dll\\\")]public static extern bool SetProcessWorkingSetSize(IntPtr hProcess, int dwMinimumWorkingSetSize, int dwMaximumWorkingSetSize);\"; Add-Type -MemberDefinition $sig -Namespace Win32 -Name Kernel32; [Win32.Kernel32]::SetProcessWorkingSetSize((Get-Process -Id $pid).Handle, -1, -1) }"'
-      );
-      // Método alternativo: EmptyStandbyList si existe
-      if (!r.success) {
-        await window.electronAPI.runCommand(
-          'powershell -NoProfile -ExecutionPolicy Bypass -Command "if (Test-Path \"$env:TEMP\\EmptyStandbyList.exe\") { & \"$env:TEMP\\EmptyStandbyList.exe\" standby } else { Write-Host \"EmptyStandbyList no disponible\" }"'
-        );
+      const r = await window.electronAPI.clearRam();
+      if (r.success) {
+        addLog('RAM', 'Limpiando', 'Memoria standby liberada correctamente', 'success');
+      } else {
+        addLog('RAM', 'Error', r.output || 'No se pudo liberar la memoria', 'error');
       }
-      addLog('RAM', 'Limpiando', 'Memoria standby liberada', 'success');
     } catch (err) {
       addLog('RAM', 'Error', String(err), 'error');
     }
@@ -136,14 +132,14 @@ export function Dashboard({
     <div className="space-y-6 animate-fade-in">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-xl font-bold text-white">Centro de Diagnóstico</h1>
+          <h1 className="text-xl font-bold text-neutral-900">Centro de Diagnóstico</h1>
           <p className="text-xs text-dark-400 mt-1">Información del sistema en tiempo real</p>
         </div>
         <div className="flex gap-2">
           <button
             onClick={handleGenerateReport}
             disabled={generatingReport}
-            className="flex items-center gap-2 px-4 py-2 bg-dark-700 hover:bg-dark-600 border border-dark-600 text-white text-sm font-medium rounded-lg transition-all duration-200 disabled:opacity-50"
+            className="flex items-center gap-2 px-4 py-2 bg-dark-700 hover:bg-dark-600 border border-dark-600 text-neutral-900 text-sm font-medium rounded-lg transition-all duration-200 disabled:opacity-50"
           >
             <FileText size={16} />
             {generatingReport ? 'Generando...' : 'Generar reporte'}
@@ -184,7 +180,7 @@ export function Dashboard({
               <ProgressBar value={cpuInfo.usage} />
               {cpuInfo.temperature !== null && (
                 <div className="text-[10px] text-dark-400">
-                  Temperatura: <span className="text-white">{cpuInfo.temperature}°C</span>
+                  Temperatura: <span className="text-neutral-900">{cpuInfo.temperature}°C</span>
                 </div>
               )}
             </div>
@@ -222,7 +218,7 @@ export function Dashboard({
                 <button
                   onClick={clearRAM}
                   disabled={clearingRAM}
-                  className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 bg-yellow-600/80 hover:bg-yellow-700 text-white text-xs font-medium rounded-lg transition-all duration-200 disabled:opacity-50"
+                  className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 bg-yellow-600/80 hover:bg-yellow-700 text-neutral-900 text-xs font-medium rounded-lg transition-all duration-200 disabled:opacity-50"
                 >
                   {clearingRAM ? <Loader size={13} className="animate-spin" /> : <Trash2 size={13} />}
                   {clearingRAM ? 'Limpiando...' : 'Liberar RAM'}

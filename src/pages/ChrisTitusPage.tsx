@@ -59,7 +59,7 @@ export function ChrisTitusPage() {
   return (
     <div className="space-y-6 animate-fade-in">
       <div>
-        <h1 className="text-xl font-bold text-white">ChrisTitus Tech - Winutil</h1>
+        <h1 className="text-xl font-bold text-neutral-900">ChrisTitus Tech - Winutil</h1>
         <p className="text-xs text-dark-400 mt-1">Utilidad todo-en-uno para configurar, debloat y reparar Windows</p>
       </div>
 

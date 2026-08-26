@@ -38,6 +38,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   writeFile: (path, content) => ipcRenderer.invoke('write-file', { path, content }),
   appendLog: (entry) => ipcRenderer.invoke('append-log', entry),
   defenderTool: (action) => ipcRenderer.invoke('defender-tool', action),
+  clearRam: () => ipcRenderer.invoke('clear-ram'),
   onDownloadProgress: (callback) => ipcRenderer.on('download-progress', (event, data) => callback(data)),
 
   // ISO

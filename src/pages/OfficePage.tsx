@@ -47,7 +47,7 @@ export function OfficePage() {
     setConfirmModal({
       open: true,
       title: `Instalar ${version.name} (Online)`,
-      message: `Se descargarÃ¡ setup.exe, se generarÃ¡ el Configuration.xml para ${version.name} en ${OFFICE_DIR}\\ y luego se ejecutarÃ¡ la instalaciÃ³n.\n\nÂ¿Continuar?`,
+      message: `Se descargará setup.exe, se generará el Configuration.xml para ${version.name} en ${OFFICE_DIR}\\ y luego se ejecutará la instalación.\n\n¿Continuar?`,
       onConfirm: async () => {
         setConfirmModal({ ...confirmModal, open: false });
         setLoading(true);
@@ -90,9 +90,9 @@ export function OfficePage() {
           );
 
           if (installResult.success) {
-            log('Office', 'InstalaciÃ³n', 'Instalador ejecutado correctamente. Siga las instrucciones en pantalla.', 'success');
+            log('Office', 'Instalación', 'Instalador ejecutado correctamente. Siga las instrucciones en pantalla.', 'success');
           } else {
-            log('Office', 'InstalaciÃ³n', 'Verifique la ventana de Office que se abriÃ³', 'warning');
+            log('Office', 'Instalación', 'Verifique la ventana de Office que se abrió', 'warning');
           }
         } catch (err) {
           log('Office', 'Error', String(err), 'error');
@@ -108,7 +108,7 @@ export function OfficePage() {
     setConfirmModal({
       open: true,
       title: `Descargar e Instalar ${version.name}`,
-      message: `Se descargarÃ¡ la imagen ISO de ${version.name} (~3-5 GB). Esto puede tardar varios minutos.\n\nÂ¿Continuar?`,
+      message: `Se descargará la imagen ISO de ${version.name} (~3-5 GB). Esto puede tardar varios minutos.\n\n¿Continuar?`,
       onConfirm: async () => {
         setConfirmModal({ ...confirmModal, open: false });
         setLoading(true);
@@ -154,16 +154,16 @@ export function OfficePage() {
           log('Office', 'Montado', `ISO montada en unidad ${drive}:`, 'success');
 
           // Run setup
-          setDownloadStatus('Iniciando instalaciÃ³n...');
+          setDownloadStatus('Iniciando instalación...');
           log('Office', 'Instalando', `Ejecutando ${drive}:\\setup.exe`, 'info');
           const installResult = await window.electronAPI.runCommand(
             `powershell -NoProfile -ExecutionPolicy Bypass -Command "Start-Process '${drive}:\\setup.exe' -Verb RunAs -Wait"`
           );
 
           if (installResult.success) {
-            log('Office', 'InstalaciÃ³n', `${version.name} instalado correctamente`, 'success');
+            log('Office', 'Instalación', `${version.name} instalado correctamente`, 'success');
           } else {
-            log('Office', 'InstalaciÃ³n', 'Verifique la ventana de Office que se abriÃ³', 'warning');
+            log('Office', 'Instalación', 'Verifique la ventana de Office que se abrió', 'warning');
           }
 
           // Unmount ISO
@@ -204,7 +204,7 @@ export function OfficePage() {
     setConfirmModal({
       open: true,
       title: 'Desinstalación COMPLETA de Office',
-      message: 'ADVERTENCIA: Esto eliminará TODOS los componentes de Office:\n\n• Todas las aplicaciones (Word, Excel, PowerPoint, Outlook, etc.)\n• Licencias y activaciones\n• Archivos de registro y configuración\n• Carpetas de instalación y datos\n• Tareas programadas y servicios\n\nEsta acción es IRREVERSIBLE. Se descargará y ejecutará el script oficial de Microsoft (Office Scrubber / Support and Recovery Assistant).\n\nSe recomienda REINICIAR después.\n\nÂ¿Seguro que desea continuar?',
+      message: 'ADVERTENCIA: Esto eliminará TODOS los componentes de Office:\n\n• Todas las aplicaciones (Word, Excel, PowerPoint, Outlook, etc.)\n• Licencias y activaciones\n• Archivos de registro y configuración\n• Carpetas de instalación y datos\n• Tareas programadas y servicios\n\nEsta acción es IRREVERSIBLE. Se descargará y ejecutará el script oficial de Microsoft (Office Scrubber / Support and Recovery Assistant).\n\nSe recomienda REINICIAR después.\n\n¿Seguro que desea continuar?',
       onConfirm: () => {
         setConfirmModal({ ...confirmModal, open: false });
         setLoading(true);
@@ -231,21 +231,21 @@ export function OfficePage() {
     setConfirmModal({
       open: true,
       title: `Reparar Office - ${type}`,
-      message: `Â¿Desea ejecutar reparaciÃ³n ${type} de Office?`,
+      message: `¿Desea ejecutar reparación ${type} de Office?`,
       onConfirm: () => {
         setConfirmModal({ ...confirmModal, open: false });
         setLoading(true);
         setOutput('');
-        log('Office', 'Reparando', `ReparaciÃ³n ${type}`, 'info');
-        if (type === 'RÃ¡pida') {
+        log('Office', 'Reparando', `Reparación ${type}`, 'info');
+        if (type === 'Rápida') {
           window.electronAPI.runCommand('powershell -NoProfile -ExecutionPolicy Bypass -Command "Get-CimInstance Win32_Product | Where-Object { $_.Name -like \'*Office*\' } | ForEach-Object { $_.InvokeRepair() }"').then(r => {
             setOutput(r.output);
-            log('Office', 'ReparaciÃ³n', r.success ? 'Completado' : 'Error', r.success ? 'success' : 'error');
+            log('Office', 'Reparación', r.success ? 'Completado' : 'Error', r.success ? 'success' : 'error');
             setLoading(false);
           });
         } else {
           window.electronAPI.runCommand('control.exe appwiz.cpl');
-          log('Office', 'ReparaciÃ³n', 'Panel de control abierto. Seleccione Office y haga clic en Cambiar', 'info');
+          log('Office', 'Reparación', 'Panel de control abierto. Seleccione Office y haga clic en Cambiar', 'info');
           setLoading(false);
         }
       }
@@ -255,7 +255,7 @@ export function OfficePage() {
   return (
     <div className="space-y-6 animate-fade-in">
       <div>
-        <h1 className="text-xl font-bold text-white">Microsoft Office</h1>
+        <h1 className="text-xl font-bold text-neutral-900">Microsoft Office</h1>
         <p className="text-xs text-dark-400 mt-1">Instalar, activar y reparar Microsoft Office</p>
       </div>
 
@@ -318,11 +318,11 @@ export function OfficePage() {
             <div className="flex items-start gap-3">
               <Globe size={16} className="text-blue-400 mt-0.5 flex-shrink-0" />
               <div>
-                <p className="text-xs text-dark-200 font-medium">InstalaciÃ³n Online (descarga automÃ¡tica)</p>
+                <p className="text-xs text-dark-200 font-medium">Instalación Online (descarga automática)</p>
                 <p className="text-[11px] text-dark-400 mt-1">
-                  Se descargarÃ¡ automÃ¡ticamente <code className="bg-dark-700 px-1 rounded">setup.exe</code> y{' '}
+                  Se descargará automáticamente <code className="bg-dark-700 px-1 rounded">setup.exe</code> y{' '}
                   <code className="bg-dark-700 px-1 rounded">Configuration.xml</code> a{' '}
-                  <code className="bg-dark-700 px-1 rounded">{OFFICE_DIR}\</code>, luego se ejecutarÃ¡ el instalador con permisos de administrador.
+                  <code className="bg-dark-700 px-1 rounded">{OFFICE_DIR}\</code>, luego se ejecutará el instalador con permisos de administrador.
                 </p>
               </div>
             </div>
@@ -334,9 +334,9 @@ export function OfficePage() {
                 key={ver.id}
                 icon={<Globe size={20} />}
                 title={ver.name}
-                description="Descarga setup.exe + genera Configuration.xml + instala automÃ¡ticamente"
+                description="Descarga setup.exe + genera Configuration.xml + instala automáticamente"
                 status="info"
-                statusText="Descarga automÃ¡tica"
+                statusText="Descarga automática"
                 accentColor="blue"
                 primaryAction="Instalar"
                 primaryOnClick={() => startOnlineInstall(ver)}
@@ -354,11 +354,11 @@ export function OfficePage() {
             <div className="flex items-start gap-3">
               <HardDrive size={16} className="text-orange-400 mt-0.5 flex-shrink-0" />
               <div>
-                <p className="text-xs text-dark-200 font-medium">InstalaciÃ³n Offline (ISO automÃ¡tica)</p>
+                <p className="text-xs text-dark-200 font-medium">Instalación Offline (ISO automática)</p>
                 <p className="text-[11px] text-dark-400 mt-1">
-                  Se descargarÃ¡ la ISO directamente desde los servidores de Microsoft.
-                  Una vez descargada se monta automÃ¡ticamente y se ejecuta <code className="bg-dark-700 px-1 rounded">setup.exe</code>.
-                  <br />Requiere conexiÃ³n a internet para la descarga (~3-5 GB).
+                  Se descargará la ISO directamente desde los servidores de Microsoft.
+                  Una vez descargada se monta automáticamente y se ejecuta <code className="bg-dark-700 px-1 rounded">setup.exe</code>.
+                  <br />Requiere conexión a internet para la descarga (~3-5 GB).
                 </p>
               </div>
             </div>
@@ -370,9 +370,9 @@ export function OfficePage() {
                 key={ver.id}
                 icon={<FileText size={20} />}
                 title={ver.name}
-                description={`Office ${ver.id} - 64-bit - EspaÃ±ol (MÃ©xico)`}
+                description={`Office ${ver.id} - 64-bit - Español (México)`}
                 status="info"
-                statusText="ISO automÃ¡tica"
+                statusText="ISO automática"
                 accentColor="orange"
                 primaryAction="Descargar e Instalar"
                 primaryOnClick={() => startOfflineInstall(ver)}
@@ -406,13 +406,13 @@ export function OfficePage() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <ToolCard
               icon={<Wrench size={20} />}
-              title="ReparaciÃ³n rÃ¡pida"
-              description="Repara archivos daÃ±ados sin eliminar configuraciones"
-              accentColor="blue" primaryAction="Reparar" primaryOnClick={() => repairOffice('RÃ¡pida')} loading={loading}
+              title="Reparación rápida"
+              description="Repara archivos dañados sin eliminar configuraciones"
+              accentColor="blue" primaryAction="Reparar" primaryOnClick={() => repairOffice('Rápida')} loading={loading}
             />
             <ToolCard
               icon={<Wrench size={20} />}
-              title="ReparaciÃ³n completa"
+              title="Reparación completa"
               description="Reinstala componentes. Abre Panel de Control"
               accentColor="yellow" primaryAction="Reparar" primaryOnClick={() => repairOffice('Completa')} loading={loading}
             />

@@ -4,7 +4,6 @@ import {
   Dashboard,
   WindowsPage,
   OfficePage,
-  AdobePage,
   BrowsersPage,
   DriversPage,
   UtilitiesPage,
@@ -19,7 +18,6 @@ import { Page, CpuInfo, RamInfo, DiskInfo, GpuInfo, WindowsInfo, NetworkInfo } f
 function AppContent() {
   const { addLog } = useLogs();
   const [currentPage, setCurrentPage] = useState<Page>('dashboard');
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
   // System state
   const [computerName, setComputerName] = useState('');
@@ -96,8 +94,6 @@ function AppContent() {
         return <WindowsPage />;
       case 'office':
         return <OfficePage />;
-      case 'adobe':
-        return <AdobePage />;
       case 'browsers':
         return <BrowsersPage />;
       case 'drivers':
@@ -118,33 +114,31 @@ function AppContent() {
   };
 
   return (
-    <div className="h-screen flex flex-col bg-dark-950 text-dark-50 overflow-hidden relative">
-      {/* Fondo decorativo */}
-      <div className="absolute inset-0 pointer-events-none">
-        <div className="absolute -top-32 -right-24 w-[420px] h-[420px] rounded-full bg-primary-600/10 blur-3xl animate-float" />
-        <div className="absolute -bottom-40 -left-24 w-[380px] h-[380px] rounded-full bg-purple-600/8 blur-3xl animate-float" style={{ animationDelay: '2s' }} />
-      </div>
+    <div className="h-screen flex flex-col bg-dark-950 text-neutral-900 overflow-hidden">
       <Header
         computerName={computerName}
         username={username}
         isAdmin={isAdmin}
         version="1.0.0"
+        currentPage={currentPage}
+        onNavigate={setCurrentPage}
       />
       <div className="flex flex-1 overflow-hidden">
         <Sidebar
-          currentPage={currentPage}
-          onNavigate={setCurrentPage}
-          collapsed={sidebarCollapsed}
-          onToggleCollapse={() => setSidebarCollapsed(!sidebarCollapsed)}
+          computerName={computerName}
+          username={username}
+          isAdmin={isAdmin}
+          loading={loading}
+          onRefresh={loadSystemInfo}
         />
-        <main className="flex-1 overflow-y-auto p-4 md:p-6 relative z-[1]">
+        <main className="flex-1 overflow-y-auto p-4 md:p-5">
           {loading && currentPage === 'dashboard' ? (
             <div className="flex flex-col items-center justify-center h-full animate-fade-in">
               <div className="relative">
-                <div className="w-16 h-16 border-4 border-dark-700 border-t-primary-500 rounded-full animate-spin" />
+                <div className="w-16 h-16 border-4 border-neutral-200 border-t-primary-600 rounded-full animate-spin" />
               </div>
-              <p className="text-sm text-dark-300 mt-4">Analizando equipo...</p>
-              <p className="text-xs text-dark-500 mt-1">Obteniendo información del sistema</p>
+              <p className="text-sm text-neutral-600 mt-4">Analizando equipo...</p>
+              <p className="text-xs text-neutral-400 mt-1">Obteniendo información del sistema</p>
             </div>
           ) : (
             renderPage()

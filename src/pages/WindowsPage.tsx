@@ -67,7 +67,7 @@ const checkDefender = useCallback(async () => {
     addLog('Windows', 'Defender Control', 'Abriendo dControl.exe (Sordum)', 'info');
     window.electronAPI.defenderTool('open').then(r => {
       if (r.success) {
-        addLog('Windows', 'Defender Control', 'Abierto. Dentro del programa presiona el botÃ³n para Activar o Desactivar.', 'success');
+        addLog('Windows', 'Defender Control', 'Abierto. Dentro del programa presiona el botón para Activar o Desactivar.', 'success');
         // Refrescar estado cuando el usuario cierre el programa
         setTimeout(checkDefender, 8000);
       } else {
@@ -82,7 +82,7 @@ const checkDefender = useCallback(async () => {
       open: true,
       tool: 'defender-repair',
       title: 'Reparar Windows Defender',
-      message: 'Se ejecutarÃ¡ DISM RestoreHealth + SFC /scannow como administrador para reparar los componentes daÃ±ados de Defender.\n\nâ±ï¸ Puede tardar 15-30 minutos. Reinicia despuÃ©s.\n\nÂ¿Continuar?',
+      message: 'Se ejecutará DISM RestoreHealth + SFC /scannow como administrador para reparar los componentes dañados de Defender.\n\nâ±ï¸ Puede tardar 15-30 minutos. Reinicia después.\n\n¿Continuar?',
     });
   };
 
@@ -101,15 +101,15 @@ const checkDefender = useCallback(async () => {
     if (tool === 'defender-repair') {
       setLoading(true);
       setOutput('');
-      addLog('Windows', 'ReparaciÃ³n Defender', 'DISM RestoreHealth + SFC', 'info');
+      addLog('Windows', 'Reparación Defender', 'DISM RestoreHealth + SFC', 'info');
       try {
         const r = await window.electronAPI.runCommand(
           'powershell -NoProfile -ExecutionPolicy Bypass -Command "Start-Process cmd -Verb RunAs -ArgumentList \'/k DISM /Online /Cleanup-Image /RestoreHealth && sfc /scannow\'"'
         );
-        setOutput(r.output || 'Ventana de reparaciÃ³n abierta. Espera a que termine (15-30 min) y reinicia.');
-        addLog('Windows', 'ReparaciÃ³n Defender', 'Proceso lanzado. Reinicia al terminar.', r.success ? 'success' : 'error');
+        setOutput(r.output || 'Ventana de reparación abierta. Espera a que termine (15-30 min) y reinicia.');
+        addLog('Windows', 'Reparación Defender', 'Proceso lanzado. Reinicia al terminar.', r.success ? 'success' : 'error');
       } catch (err) {
-        addLog('Windows', 'ReparaciÃ³n Defender - Error', String(err), 'error');
+        addLog('Windows', 'Reparación Defender - Error', String(err), 'error');
       }
       setLoading(false);
       return;
@@ -145,7 +145,7 @@ const checkDefender = useCallback(async () => {
         open: true,
         tool,
         title: `Ejecutar ${label}`,
-        message: `Â¿EstÃ¡ seguro de ejecutar ${label}? Esta operaciÃ³n puede requerir permisos de administrador.`,
+        message: `¿Está seguro de ejecutar ${label}? Esta operación puede requerir permisos de administrador.`,
       });
       return;
     }
@@ -159,7 +159,7 @@ const checkDefender = useCallback(async () => {
     try {
       const result = await window.electronAPI.executeTool(tool);
       setOutput(result.output);
-      addLog('Windows', `${label} - Completado`, result.success ? 'Ã‰xito' : 'Error', result.success ? 'success' : 'error');
+      addLog('Windows', `${label} - Completado`, result.success ? 'Éxito' : 'Error', result.success ? 'success' : 'error');
     } catch (err) {
       setOutput(`Error: ${err}`);
       addLog('Windows', `${label} - Error`, String(err), 'error');
@@ -170,8 +170,8 @@ const checkDefender = useCallback(async () => {
   return (
     <div className="space-y-6 animate-fade-in">
       <div>
-        <h1 className="text-xl font-bold text-white">Herramientas de Windows</h1>
-        <p className="text-xs text-dark-400 mt-1">ReparaciÃ³n, mantenimiento y configuraciÃ³n del sistema</p>
+        <h1 className="text-xl font-bold text-neutral-900">Herramientas de Windows</h1>
+        <p className="text-xs text-dark-400 mt-1">Reparación, mantenimiento y configuración del sistema</p>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
@@ -192,7 +192,7 @@ const checkDefender = useCallback(async () => {
         <ToolCard
           icon={<Search size={20} />}
           title="DISM - Verificar imagen"
-          description="Verifica el estado de la imagen de Windows en busca de corrupciÃ³n"
+          description="Verifica el estado de la imagen de Windows en busca de corrupción"
           status="info"
           statusText="Disponible"
           accentColor="green"
@@ -244,7 +244,7 @@ const checkDefender = useCallback(async () => {
         <ToolCard
           icon={<AlertTriangle size={20} />}
           title="Windows Update"
-          description="Abrir la configuraciÃ³n de Windows Update"
+          description="Abrir la configuración de Windows Update"
           status="info"
           statusText="Disponible"
           accentColor="cyan"
@@ -273,7 +273,7 @@ const checkDefender = useCallback(async () => {
             </span>
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2 flex-wrap">
-                <h3 className="text-sm font-semibold text-white">Windows Defender</h3>
+                <h3 className="text-sm font-semibold text-neutral-900">Windows Defender</h3>
                 <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${
                   defenderEnabled ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'
                 }`}>
@@ -286,13 +286,13 @@ const checkDefender = useCallback(async () => {
                 )}
               </div>
               <p className="text-[11px] text-dark-400 mt-1">
-                Panel de Defender Control integrado. Dentro del programa, presiona el botÃ³n grande para Activar o Desactivar.
+                Panel de Defender Control integrado. Dentro del programa, presiona el botón grande para Activar o Desactivar.
               </p>
               <div className="flex gap-2 mt-3 flex-wrap">
                 <button
                   onClick={openDefenderControl}
                   disabled={defenderLoading}
-                  className="flex items-center gap-1.5 px-3 py-1.5 bg-orange-600 hover:bg-orange-700 text-white text-xs font-medium rounded-lg transition-all duration-200 disabled:opacity-50"
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-orange-600 hover:bg-orange-700 text-neutral-900 text-xs font-medium rounded-lg transition-all duration-200 disabled:opacity-50"
                 >
                   <Shield size={13} />
                   Abrir panel de control

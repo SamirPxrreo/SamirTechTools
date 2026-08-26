@@ -114,7 +114,7 @@ export function BrowsersPage() {
   return (
     <div className="space-y-6 animate-fade-in">
       <div>
-        <h1 className="text-xl font-bold text-white">Navegadores Web</h1>
+        <h1 className="text-xl font-bold text-neutral-900">Navegadores Web</h1>
         <p className="text-xs text-dark-400 mt-1">Descargar e instalar navegadores desde fuentes oficiales</p>
       </div>
 

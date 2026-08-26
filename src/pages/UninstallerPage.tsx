@@ -81,7 +81,7 @@ export function UninstallerPage() {
   return (
     <div className="space-y-6 animate-fade-in">
       <div>
-        <h1 className="text-xl font-bold text-white">Desinstalador de Aplicaciones</h1>
+        <h1 className="text-xl font-bold text-neutral-900">Desinstalador de Aplicaciones</h1>
         <p className="text-xs text-dark-400 mt-1">Desinstala múltiples apps y elimina todos sus rastros: carpetas, registro, servicios y accesos directos</p>
       </div>
 
@@ -94,7 +94,7 @@ export function UninstallerPage() {
             value={search}
             onChange={e => setSearch(e.target.value)}
             placeholder="Buscar aplicación..."
-            className="w-full bg-dark-800 border border-dark-700 rounded-lg pl-9 pr-3 py-2 text-sm text-white placeholder-dark-500 focus:outline-none focus:border-primary-500"
+            className="w-full bg-dark-800 border border-dark-700 rounded-lg pl-9 pr-3 py-2 text-sm text-neutral-900 placeholder-dark-500 focus:outline-none focus:border-primary-500"
           />
         </div>
         <button
@@ -165,7 +165,7 @@ export function UninstallerPage() {
                     : <Square size={17} className="text-dark-500" />}
                 </button>
                 <div className="flex-1 min-w-0">
-                  <p className="text-xs font-medium text-white truncate">{app.name}</p>
+                  <p className="text-xs font-medium text-neutral-900 truncate">{app.name}</p>
                   <p className="text-[10px] text-dark-500 truncate">
                     v{app.version}{app.location ? ` • ${app.location}` : ''}
                   </p>

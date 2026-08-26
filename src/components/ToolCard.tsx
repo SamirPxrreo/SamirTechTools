@@ -16,21 +16,21 @@ interface ToolCardProps {
 }
 
 const statusColors = {
-  ok: 'bg-green-500/15 text-green-300 border border-green-500/25',
-  warning: 'bg-yellow-500/15 text-yellow-300 border border-yellow-500/25',
-  error: 'bg-red-500/15 text-red-300 border border-red-500/25',
-  info: 'bg-primary-500/15 text-primary-300 border border-primary-500/25',
+  ok: 'bg-green-100 text-green-700 border border-green-300',
+  warning: 'bg-yellow-100 text-yellow-700 border border-yellow-300',
+  error: 'bg-red-100 text-red-700 border border-red-300',
+  info: 'bg-blue-100 text-blue-700 border border-blue-300',
 };
 
-const accentGlow: Record<string, string> = {
-  blue: 'text-blue-400 bg-blue-500/10 ring-blue-500/20',
-  green: 'text-green-400 bg-green-500/10 ring-green-500/20',
-  yellow: 'text-yellow-400 bg-yellow-500/10 ring-yellow-500/20',
-  red: 'text-red-400 bg-red-500/10 ring-red-500/20',
-  purple: 'text-purple-400 bg-purple-500/10 ring-purple-500/20',
-  cyan: 'text-cyan-400 bg-cyan-500/10 ring-cyan-500/20',
-  orange: 'text-orange-400 bg-orange-500/10 ring-orange-500/20',
-  pink: 'text-pink-400 bg-pink-500/10 ring-pink-500/20',
+const accentColors: Record<string, string> = {
+  blue: 'text-blue-600',
+  green: 'text-green-600',
+  yellow: 'text-yellow-600',
+  red: 'text-red-600',
+  purple: 'text-purple-600',
+  cyan: 'text-cyan-600',
+  orange: 'text-orange-600',
+  pink: 'text-pink-600',
 };
 
 export function ToolCard({
@@ -48,33 +48,29 @@ export function ToolCard({
   children,
 }: ToolCardProps) {
   return (
-    <div className="glass rounded-2xl p-5 card-hover flex flex-col">
-      <div className="flex items-start justify-between gap-3 mb-3">
-        <div className="flex items-center gap-3 min-w-0">
-          <div className={`p-2.5 rounded-xl ring-1 flex-shrink-0 ${accentGlow[accentColor] || accentGlow.blue}`}>
-            {icon}
-          </div>
-          <div className="min-w-0">
-            <h3 className="text-sm font-semibold text-white leading-snug">{title}</h3>
-            {description && <p className="text-[11px] text-dark-400 mt-1 leading-relaxed">{description}</p>}
-          </div>
+    <div className="bg-white border border-neutral-300 rounded-md p-3 flex flex-col hover:border-neutral-400 transition-colors">
+      <div className="flex items-start justify-between gap-2 mb-2">
+        <div className="flex items-center gap-2 min-w-0">
+          <span className={`flex-shrink-0 ${accentColors[accentColor] || accentColors.blue}`}>{icon}</span>
+          <h3 className="text-xs font-semibold text-neutral-800 leading-snug">{title}</h3>
         </div>
         {status && statusText && (
-          <span className={`text-[9px] px-2 py-1 rounded-full font-semibold tracking-wide uppercase flex-shrink-0 ${statusColors[status]}`}>
+          <span className={`text-[9px] px-1.5 py-0.5 rounded-sm font-semibold uppercase tracking-wide flex-shrink-0 ${statusColors[status]}`}>
             {statusText}
           </span>
         )}
       </div>
 
-      {children && <div className="mb-4">{children}</div>}
+      {description && <p className="text-[10px] text-neutral-500 mb-2 leading-relaxed">{description}</p>}
+      {children && <div className="mb-2">{children}</div>}
 
       {(primaryAction || secondaryAction) && (
-        <div className="flex gap-2 mt-auto pt-2 flex-wrap">
+        <div className="flex gap-1.5 mt-auto pt-1 flex-wrap">
           {primaryAction && (
             <button
               onClick={primaryOnClick}
               disabled={loading}
-              className="px-4 py-2 bg-gradient-to-r from-primary-600 to-purple-600 hover:from-primary-500 hover:to-purple-500 active:opacity-90 text-white text-xs font-semibold rounded-xl transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 shadow-glow"
+              className="px-2.5 py-1.5 bg-neutral-800 hover:bg-neutral-700 active:bg-neutral-900 text-white text-[11px] font-medium rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1.5"
             >
               {loading && (
                 <svg className="animate-spin h-3 w-3" viewBox="0 0 24 24">
@@ -88,7 +84,7 @@ export function ToolCard({
           {secondaryAction && (
             <button
               onClick={secondaryOnClick}
-              className="px-4 py-2 bg-white/5 hover:bg-white/10 border border-white/10 text-dark-200 text-xs font-medium rounded-xl transition-all duration-200"
+              className="px-2.5 py-1.5 bg-white hover:bg-neutral-100 border border-neutral-300 text-neutral-700 text-[11px] font-medium rounded transition-colors"
             >
               {secondaryAction}
             </button>
