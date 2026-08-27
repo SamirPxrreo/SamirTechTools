@@ -145,47 +145,44 @@ ipcMain.handle('get-disk-info', async () => {
   return { physical, logical };
 });
 
-// GPU
+// GPU - VRAM real via registro en un solo PS (evita 5 spawns que causaban delay negro)
 ipcMain.handle('get-gpu-info', async () => {
   let gpus = [];
   try {
-    const r = await ps('Get-CimInstance Win32_VideoController | ForEach-Object { $_.Name + "|" + $_.AdapterRAM + "|" + $_.DriverVersion + "|" + $_.DriverDate + "|" + $_.PNPDeviceID }');
+    const script = `
+$regBase='HKLM:\\SYSTEM\\CurrentControlSet\\Control\\Class\\{4d36e968-e325-11ce-bfc1-08002be10318}'
+$gpus=Get-CimInstance Win32_VideoController
+foreach($g in $gpus){
+  $name=$g.Name; $vram=[int64]$g.AdapterRAM; $dv=$g.DriverVersion; $dd=$g.DriverDate
+  try{
+    $keys=Get-ChildItem $regBase -ErrorAction SilentlyContinue | Select-Object -ExpandProperty PSChildName
+    foreach($k in $keys){ if($k -notmatch '^\\d{4}$'){continue}
+      $desc=(Get-ItemProperty "$regBase\\$k" -ErrorAction SilentlyContinue).DriverDesc
+      if(-not $desc){continue}
+      $nl=$name.ToLower(); $dl=$desc.ToLower()
+      $match=$nl.Contains($dl) -or $dl.Contains($nl.Split('(')[0].Trim()) -or ($nl.Split(' ') | Where-Object{$_.Length -gt 3} | Where-Object{$dl.Contains($_)} | Measure-Object).Count -gt 0
+      if($match){
+        $qw=(Get-ItemProperty "$regBase\\$k" -Name 'HardwareInformation.qwMemorySize' -ErrorAction SilentlyContinue).'HardwareInformation.qwMemorySize'
+        $qp=(Get-ItemProperty "$regBase\\$k" -Name 'HardwareInformation.qpmemorySize' -ErrorAction SilentlyContinue).'HardwareInformation.qpmemorySize'
+        $ms=(Get-ItemProperty "$regBase\\$k" -Name 'HardwareInformation.memorySize' -ErrorAction SilentlyContinue).'HardwareInformation.memorySize'
+        if($qw -gt 0){$vram=[int64]$qw; break}
+        if($qp -gt 0){$vram=[int64]$qp; break}
+        if($ms -gt 0){$vram=[int64]$ms; break}
+      }
+    }
+    if($vram -eq $g.AdapterRAM){
+      $qw0=(Get-ItemProperty "$regBase\\0000" -Name 'HardwareInformation.qwMemorySize' -ErrorAction SilentlyContinue).'HardwareInformation.qwMemorySize'
+      if($qw0 -gt $vram){$vram=[int64]$qw0}
+    }
+  }catch{}
+  "$name|$vram|$dv|$dd"
+}
+`;
+    const r = await ps(script);
     for (const line of r.output.trim().split('\n')) {
       const p = line.split('|');
-      if (p.length >= 4) {
-        let vram = parseInt(p[1]) || 0;
-        // AdapterRAM es uint32 (cap 4GB) y suele ser impreciso: leer VRAM real del registro
-        try {
-          const regBase = 'HKLM:\\SYSTEM\\CurrentControlSet\\Control\\Class\\{4d36e968-e325-11ce-bfc1-08002be10318}';
-          const keys = await ps(`Get-ChildItem '${regBase}' -ErrorAction SilentlyContinue | Select-Object -ExpandProperty PSChildName`);
-          const nameLower = ((p[0] || '')).toLowerCase();
-          let matched = false;
-          for (const key of keys.output.trim().split('\n')) {
-            const k = key.trim();
-            if (!/^\d{4}$/.test(k)) continue;
-            const desc = await ps(`(Get-ItemProperty '${regBase}\\${k}' -ErrorAction SilentlyContinue).DriverDesc`);
-            const descTrim = desc.output.trim();
-            const isMatch = descTrim && (nameLower.includes(descTrim.toLowerCase()) || descTrim.toLowerCase().includes(nameLower.split(' (')[0].toLowerCase()) || nameLower.split(' ').some(w => w.length>3 && descTrim.toLowerCase().includes(w)));
-            if (isMatch) {
-              const qw = await ps(`(Get-ItemProperty '${regBase}\\${k}' -Name 'HardwareInformation.qwMemorySize' -ErrorAction SilentlyContinue).'HardwareInformation.qwMemorySize'`);
-              const q = await ps(`(Get-ItemProperty '${regBase}\\${k}' -Name 'HardwareInformation.qpmemorySize' -ErrorAction SilentlyContinue).'HardwareInformation.qpmemorySize'`);
-              const d = await ps(`(Get-ItemProperty '${regBase}\\${k}' -Name 'HardwareInformation.memorySize' -ErrorAction SilentlyContinue).'HardwareInformation.memorySize'`);
-              const qwv = parseInt(qw.output.trim()) || 0;
-              const qv = parseInt(q.output.trim()) || 0;
-              const dv = parseInt(d.output.trim()) || 0;
-              if (qwv > 0) { vram = qwv; matched=true; break; }
-              if (qv > 0) { vram = qv; matched=true; break; }
-              if (dv > 0) { vram = dv; matched=true; break; }
-            }
-          }
-          // Fallback: si no matcheo, lee directo de 0000 (Intel Arc siempre ahi)
-          if (!matched) {
-            const qw = await ps(`(Get-ItemProperty '${regBase}\\0000' -Name 'HardwareInformation.qwMemorySize' -ErrorAction SilentlyContinue).'HardwareInformation.qwMemorySize'`);
-            const qwv = parseInt(qw.output.trim()) || 0;
-            if (qwv > 0 && qwv > vram) vram = qwv;
-          }
-        } catch {}
-        gpus.push({ name: (p[0] || 'Unknown').trim(), vram, driverVersion: (p[2] || 'Unknown').trim(), driverDate: (p[3] || 'Unknown').trim() });
+      if (p.length >= 4 && p[0].trim()) {
+        gpus.push({ name: p[0].trim(), vram: parseInt(p[1])||0, driverVersion: (p[2]||'Unknown').trim(), driverDate: (p[3]||'Unknown').trim() });
       }
     }
   } catch {}
@@ -552,8 +549,7 @@ ipcMain.handle('execute-tool', async (event, { tool, args }) => {
 
 ipcMain.handle('run-command', async (event, command) => await runCommand(command));
 
-// Instalar app via winget (timeout largo, 15 min) - usa --source winget para evitar error de certificado msstore (0x8a15005e en VMs)
-// En el exe empaquetado el PATH puede no incluir winget, asi que lo resolvemos con where.exe
+// Instalar app via winget con progreso en tiempo real (stream stdout -> winget-progress)
 ipcMain.handle('winget-install', async (event, wingetId) => {
   let wingetCmd = 'winget';
   try {
@@ -561,19 +557,28 @@ ipcMain.handle('winget-install', async (event, wingetId) => {
     const p = r.output.trim();
     if (p && fs.existsSync(p)) wingetCmd = `"${p}"`;
   } catch {}
+  // winget con --silent no muestra progreso; quitamos --silent para ver barra, mantenemos --disable-interactivity
+  const cmd = `${wingetCmd} install --id "${wingetId}" -e --source winget --accept-source-agreements --accept-package-agreements --disable-interactivity`;
   return new Promise((resolve) => {
-    exec(`${wingetCmd} install --id "${wingetId}" -e --source winget --accept-source-agreements --accept-package-agreements --silent --disable-interactivity`,
-      { encoding: 'utf-8', maxBuffer: 1024 * 1024 * 10, timeout: 900000 },
-      (error, stdout, stderr) => {
-        const out = (stdout || '') + (stderr || '');
-        if (error && error.killed) resolve({ success: false, output: 'Timeout: la instalacion tardo demasiado\n' + out, code: -1 });
-        // winget a veces retorna 0x8a15005e (cert msstore) aunque con --source winget no deberia; si hay salida de "Instalado" lo marcamos ok
-        else if (error && error.code !== 0) {
-          if (/instalado|successfully installed/i.test(out)) resolve({ success: true, output: out, code: 0 });
-          else resolve({ success: false, output: out || error.message, code: error.code });
-        }
-        else resolve({ success: true, output: out, code: 0 });
-      });
+    const { spawn } = require('child_process');
+    const child = spawn(cmd, { shell: true, windowsHide: true });
+    let out = '';
+    const send = (chunk, isErr=false) => {
+      const text = chunk.toString();
+      out += text;
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.webContents.send('winget-progress', { wingetId, chunk: text, isErr });
+      }
+    };
+    child.stdout.on('data', (d) => send(d, false));
+    child.stderr.on('data', (d) => send(d, true));
+    const t = setTimeout(() => { try{ child.kill(); }catch{}; resolve({ success: false, output: out + '\nTimeout: la instalacion tardo demasiado', code: -1 }); }, 900000);
+    child.on('close', (code) => {
+      clearTimeout(t);
+      if (code === 0 || /instalado|successfully installed/i.test(out)) resolve({ success: true, output: out, code: code||0 });
+      else resolve({ success: false, output: out || `Exit code ${code}`, code: code||-1 });
+    });
+    child.on('error', (err) => { clearTimeout(t); resolve({ success: false, output: out + String(err), code: -1 }); });
   });
 });
 

@@ -1,5 +1,5 @@
-import React, { useState, useMemo, useCallback } from 'react';
-import { Download, Search, CheckCircle2, Loader2, XCircle, DownloadCloud, CheckSquare, Square, X } from 'lucide-react';
+import React, { useState, useMemo, useCallback, useEffect, useRef } from 'react';
+import { Download, Search, CheckCircle2, Loader2, XCircle, DownloadCloud, CheckSquare, Square, X, Terminal } from 'lucide-react';
 import { APPS, APP_CATEGORIES, AppEntry } from '../data/apps';
 import { useLogs } from '../context/LogContext';
 
@@ -20,6 +20,19 @@ export function InstallPage() {
   const [confirmApp, setConfirmApp] = useState<AppEntry | null>(null);
   const [confirmBatch, setConfirmBatch] = useState(false);
   const [batchBusy, setBatchBusy] = useState(false);
+  const [liveOutputs, setLiveOutputs] = useState<Record<string, string>>({});
+  const liveRef = useRef<HTMLPreElement>(null);
+
+  useEffect(() => {
+    if (!window.electronAPI?.onWingetProgress) return;
+    window.electronAPI.onWingetProgress(({ wingetId, chunk }) => {
+      setLiveOutputs(prev => ({ ...prev, [wingetId]: (prev[wingetId] || '') + chunk }));
+      // auto-scroll
+      setTimeout(() => { if (liveRef.current) liveRef.current.scrollTop = liveRef.current.scrollHeight; }, 50);
+    });
+  }, []);
+
+  const activeLiveId = useMemo(() => Object.keys(liveOutputs).find(id => statuses[id] === 'installing') || Object.keys(statuses).find(id => statuses[id] === 'installing') || null, [liveOutputs, statuses]);
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -52,6 +65,7 @@ export function InstallPage() {
 
   const installApp = useCallback(async (wingetId: string, name: string) => {
     setStatuses(s => ({ ...s, [wingetId]: 'installing' }));
+    setLiveOutputs(prev => ({ ...prev, [wingetId]: '' }));
     addLog('Instalar', name, `winget install ${wingetId}`, 'info');
     try {
       const r = await window.electronAPI.wingetInstall(wingetId);
@@ -286,7 +300,16 @@ export function InstallPage() {
         </div>
       )}
 
-      {/* Salida de consola de la última instalación con error */}
+      {/* Progreso en tiempo real */}
+      {activeLiveId && liveOutputs[activeLiveId] && (
+        <div>
+          <h3 className="text-sm font-semibold text-neutral-700 mb-2 flex items-center gap-2"><Terminal size={14}/> Progreso en vivo — {activeLiveId} <Loader2 size={12} className="animate-spin text-blue-600"/></h3>
+          <pre ref={liveRef} className="bg-neutral-900 text-green-400 text-[10px] font-mono p-3 rounded-md max-h-64 overflow-auto whitespace-pre-wrap">
+            {liveOutputs[activeLiveId]}
+          </pre>
+        </div>
+      )}
+      {/* Salida final */}
       {Object.entries(outputs).some(([, o]) => o) && (
         <div>
           <h3 className="text-sm font-semibold text-neutral-700 mb-2">Salida de WinGet</h3>

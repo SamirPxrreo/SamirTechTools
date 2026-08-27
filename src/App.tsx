@@ -4,8 +4,7 @@ import {
   Dashboard,
   WindowsPage,
   OfficePage,
-  BrowsersPage,
-  DriversPage,
+  ExtraAppsPage,
   UtilitiesPage,
   NetworkPage,
   SettingsPage,
@@ -112,10 +111,8 @@ function AppContent() {
         return <WindowsPage />;
       case 'office':
         return <OfficePage />;
-      case 'browsers':
-        return <BrowsersPage />;
-      case 'drivers':
-        return <DriversPage />;
+      case 'extra-apps':
+        return <ExtraAppsPage />;
       case 'utilities':
         return <UtilitiesPage />;
       case 'network':

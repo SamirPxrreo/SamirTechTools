@@ -125,10 +125,9 @@ export interface LogEntry {
 export type Page = 
   | 'dashboard' 
   | 'install'
-  | 'drivers' 
   | 'windows' 
   | 'office' 
-  | 'browsers' 
+  | 'extra-apps'
   | 'utilities' 
   | 'network' 
   | 'uninstaller'
@@ -172,6 +171,7 @@ export interface ElectronAPI {
   defenderTool: (action: 'open' | 'disable' | 'enable' | 'status') => Promise<{ success: boolean; output: string }>;
   clearRam: () => Promise<{ success: boolean; output: string }>;
   onDownloadProgress: (callback: (data: DownloadProgress) => void) => void;
+  onWingetProgress: (callback: (data: { wingetId: string; chunk: string; isErr: boolean }) => void) => void;
   mountIso: (isoPath: string) => Promise<{ success: boolean; driveLetter: string; output?: string }>;
   unmountIso: (isoPath: string) => Promise<{ success: boolean; output?: string }>;
   getDrivers: () => Promise<DriverInfo[]>;

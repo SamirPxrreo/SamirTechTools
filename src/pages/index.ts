@@ -1,8 +1,7 @@
 export { Dashboard } from './Dashboard';
 export { WindowsPage } from './WindowsPage';
 export { OfficePage } from './OfficePage';
-export { BrowsersPage } from './BrowsersPage';
-export { DriversPage } from './DriversPage';
+export { ExtraAppsPage } from './ExtraAppsPage';
 export { UtilitiesPage } from './UtilitiesPage';
 export { NetworkPage } from './NetworkPage';
 export { SettingsPage } from './SettingsPage';

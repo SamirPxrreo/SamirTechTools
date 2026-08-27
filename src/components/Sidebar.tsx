@@ -5,12 +5,11 @@ import {
   Download,
   Monitor,
   FileText,
-  Globe,
+  AppWindow,
   Wrench,
   Trash2,
   Settings,
   Network,
-  Cpu,
   RefreshCw,
 } from 'lucide-react';
 
@@ -29,8 +28,7 @@ const menuItems: { id: Page; label: string; icon: React.ReactNode; desc: string 
   { id: 'install', label: 'Instalar Apps', icon: <Download size={16} />, desc: '235 apps' },
   { id: 'windows', label: 'Windows', icon: <Monitor size={16} />, desc: 'SFC / DISM' },
   { id: 'office', label: 'Office', icon: <FileText size={16} />, desc: 'Suite' },
-  { id: 'browsers', label: 'Navegadores', icon: <Globe size={16} />, desc: 'Chrome, Edge...' },
-  { id: 'drivers', label: 'Drivers', icon: <Cpu size={16} />, desc: 'Hardware' },
+  { id: 'extra-apps', label: 'Otras Apps', icon: <AppWindow size={16} />, desc: 'JO-PDF, Obsidian...' },
   { id: 'utilities', label: 'Utilidades', icon: <Wrench size={16} />, desc: 'Limpieza' },
   { id: 'network', label: 'Red', icon: <Network size={16} />, desc: 'IP / DNS' },
   { id: 'uninstaller', label: 'Desinstalador', icon: <Trash2 size={16} />, desc: 'Limpieza profunda' },
