@@ -12,6 +12,7 @@ import {
   InstallPage,
 } from './pages';
 import { LogProvider, useLogs } from './context/LogContext';
+import { InstallProvider } from './context/InstallContext';
 import { Page, CpuInfo, RamInfo, DiskInfo, GpuInfo, WindowsInfo, NetworkInfo } from './types';
 
 function AppContent() {
@@ -166,7 +167,9 @@ function AppContent() {
 export default function App() {
   return (
     <LogProvider>
-      <AppContent />
+      <InstallProvider>
+        <AppContent />
+      </InstallProvider>
     </LogProvider>
   );
 }

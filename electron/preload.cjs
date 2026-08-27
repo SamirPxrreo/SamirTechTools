@@ -29,6 +29,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   getAllApps: () => ipcRenderer.invoke('get-all-apps'),
   getAppIcon: (displayIcon, location, uninstallString) => ipcRenderer.invoke('get-app-icon', { displayIcon, location, uninstallString }),
   uninstallApps: (apps) => ipcRenderer.invoke('uninstall-apps', apps),
+  wingetCancel: (wingetId) => ipcRenderer.invoke('winget-cancel', wingetId),
 
   // Tools
   runCommand: (command) => ipcRenderer.invoke('run-command', command),

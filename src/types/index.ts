@@ -161,6 +161,7 @@ export interface ElectronAPI {
   getAllApps: () => Promise<AllApp[]>;
   getAppIcon: (displayIcon?: string, location?: string, uninstallString?: string) => Promise<string | null>;
   uninstallApps: (apps: { name: string; uninstallString: string }[]) => Promise<{ success: boolean; output: string }>;
+  wingetCancel: (wingetId: string) => Promise<{ success: boolean; output?: string }>;
   runCommand: (command: string) => Promise<{ success: boolean; output: string; code: number }>;
   wingetInstall: (wingetId: string) => Promise<{ success: boolean; output: string; code: number }>;
   wingetList: () => Promise<{ success: boolean; output: string }>;
