@@ -9,7 +9,7 @@ Copia y pega esto al iniciar un nuevo chat con cualquier IA para que entienda el
 Hola, quiero continuar desarrollando mi proyecto **SamirTechTools**.
 
 - **Repo:** https://github.com/SamirPxrreo/SamirTechTools (rama `main`)
-- **Ubicación local en esta PC:** `C:\Users\Samir\Desktop\SamirTechTools` (puede variar, verifica con `pwd`)
+- **Ubicación local en esta PC:** PREGUNTAR al usuario dónde quiere alojarlo — no asumir `Desktop` ni ninguna ruta por defecto. Verificar con `pwd`.
 - **Stack:** Electron 31 + React 18 + TypeScript + Vite + Tailwind CSS. PowerShell para comandos del sistema.
 - **Contexto completo:** Lee primero `docs/CONTEXTO.md` y `GUIA_SINCRONIZACION.md` — ahí está toda la arquitectura, decisiones técnicas y cómo sincronizar entre PCs.
 - **Sincronización:** Este proyecto lo muevo entre PC del trabajo y PC personal con Git. Si es la primera vez en esta PC hice `git clone`, si no, antes de editar haz `git pull` y al terminar haré `git push`.
@@ -25,7 +25,7 @@ Por favor:
 
 ### Prompt corto (si la IA ya conoce el proyecto):
 
-> Continuemos SamirTechTools. Repo `SamirPxrreo/SamirTechTools` en `Desktop\SamirTechTools`. Lee `docs/CONTEXTO.md` y dime qué necesitas para [TU TAREA].
+> Continuemos SamirTechTools. Repo `SamirPxrreo/SamirTechTools`. Pregúntame dónde alojarlo y lee `docs/CONTEXTO.md` para [TU TAREA].
 
 ### Qué debe hacer la IA al recibir el prompt:
 1. `read docs/CONTEXTO.md` y `read GUIA_SINCRONIZACION.md`
