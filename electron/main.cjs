@@ -9,6 +9,14 @@ const fs = require('fs');
 let mainWindow;
 
 function createWindow() {
+  // Icono circular para ventana/taskbar (fuera del asar en build, en public en dev)
+  let iconPath = path.join(__dirname, '../public/icon.png');
+  if (app.isPackaged) {
+    const resIcon = path.join(process.resourcesPath, 'icon.png');
+    const distIcon = path.join(__dirname, '../public/icon.png');
+    if (fs.existsSync(resIcon)) iconPath = resIcon;
+    else if (fs.existsSync(distIcon)) iconPath = distIcon;
+  }
   mainWindow = new BrowserWindow({
     width: 1400,
     height: 900,
@@ -16,6 +24,7 @@ function createWindow() {
     minHeight: 700,
     frame: false,
     titleBarStyle: 'hidden',
+    icon: fs.existsSync(iconPath) ? iconPath : undefined,
     webPreferences: {
       preload: path.join(__dirname, 'preload.cjs'),
       contextIsolation: true,

@@ -28,7 +28,8 @@
     },
     "files": [
       "dist/**/*",
-      "electron/**/*"
+      "electron/**/*",
+      "public/icon.png"
     ],
     "win": {
       "target": [
@@ -53,6 +54,10 @@
       {
         "from": "resources/defender-control",
         "to": "defender-control"
+      },
+      {
+        "from": "public/icon.png",
+        "to": "icon.png"
       }
     ],
     "portable": {
