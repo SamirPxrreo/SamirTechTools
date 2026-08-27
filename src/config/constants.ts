@@ -77,27 +77,14 @@ export const OFFICE = {
   <RemoveMSI />
 </Configuration>`,
     },
-    {
-      id: '2019',
-      name: 'Office 2019 Perpetual Enterprise',
-      xml: `<Configuration ID="4f0bc6ac-9932-4b5e-9495-003a7649d0eb">
-  <Add OfficeClientEdition="64" Channel="PerpetualVL2019">
-    <Product ID="ProPlus2019Volume" PIDKEY="NMMKJ-6RK4F-KMJVX-8D9MJ-6MWKP">
-      <Language ID="es-mx" />
-      <ExcludeApp ID="Groove" />
-      <ExcludeApp ID="Lync" />
-    </Product>
-  </Add>
-  <Property Name="SharedComputerLicensing" Value="0" />
-  <Property Name="FORCEAPPSHUTDOWN" Value="FALSE" />
-  <Property Name="DeviceBasedLicensing" Value="0" />
-  <Property Name="SCLCacheOverride" Value="0" />
-  <Property Name="AUTOACTIVATE" Value="1" />
-  <Updates Enabled="TRUE" />
-  <RemoveMSI />
-</Configuration>`,
-    },
   ] as const,
+
+  // Office 2019 Retail directo (sin XML, solo ejecutar el exe)
+  OFFICE_2019_DIRECT: {
+    name: 'Office 2019 Professional Plus Retail',
+    url: 'https://c2rsetup.officeapps.live.com/c2r/download.aspx?ProductreleaseID=Professional2019Retail&platform=x64&language=es-mx&version=O16GA',
+    fileName: 'Office2019Setup.exe',
+  },
 
   // ISOs offline (descarga directa desde Microsoft)
   OFFLINE_VERSIONS: [

@@ -103,6 +103,41 @@ export function OfficePage() {
     });
   };
 
+  // OFFICE 2019 DIRECTO (c2rsetup sin XML)
+  const startOffice2019Direct = async () => {
+    const o = OFFICE.OFFICE_2019_DIRECT;
+    setConfirmModal({
+      open: true,
+      title: `Instalar ${o.name}`,
+      message: `Se descargará ${o.fileName} y se ejecutará directamente (sin Configuration.xml).\n\n¿Continuar?`,
+      onConfirm: async () => {
+        setConfirmModal({ ...confirmModal, open: false });
+        setLoading(true);
+        setOutput('');
+        setProgress(null);
+        try {
+          const dir = OFFICE_DIR;
+          await window.electronAPI.runCommand(`if not exist "${dir}" mkdir "${dir}"`);
+          const filePath = `${dir}\\${o.fileName}`;
+          setDownloadStatus(`Descargando ${o.fileName}...`);
+          log('Office', 'Descargando', `${o.name} desde c2rsetup.officeapps.live.com`, 'info');
+          const dl = await window.electronAPI.downloadFile(o.url, filePath);
+          if (!dl.success) {
+            log('Office', 'Error', `No se pudo descargar: ${dl.output}`, 'error');
+            setLoading(false); return;
+          }
+          log('Office', 'Descargado', `${o.fileName} (${formatBytes(dl.size || 0)})`, 'success');
+          log('Office', 'Instalando', `Ejecutando ${o.fileName}`, 'info');
+          const run = await window.electronAPI.runCommand(
+            `powershell -NoProfile -ExecutionPolicy Bypass -Command "Start-Process -FilePath '${filePath}' -Verb RunAs"`
+          );
+          log('Office', 'Instalación', run.success ? 'Instalador abierto. Sigue las instrucciones en pantalla.' : `Abre manualmente: ${filePath}`, run.success ? 'success' : 'warning');
+        } catch (err) { log('Office', 'Error', String(err), 'error'); }
+        setLoading(false); setDownloadStatus('');
+      }
+    });
+  };
+
   // OFFICE 2016 (ZIP de Mediafire -> extraer al Escritorio -> setup.exe)
   const startOffice2016 = async () => {
     const o = OFFICE.OFFICE_2016;
@@ -404,6 +439,17 @@ export function OfficePage() {
                 loading={loading}
               />
             ))}
+            <ToolCard
+              icon={<Download size={20} />}
+              title={OFFICE.OFFICE_2019_DIRECT.name}
+              description="Descarga directa desde Microsoft (c2rsetup). Se ejecuta sin Configuration.xml"
+              status="info"
+              statusText="Directo"
+              accentColor="green"
+              primaryAction="Descargar e instalar"
+              primaryOnClick={startOffice2019Direct}
+              loading={loading}
+            />
             <ToolCard
               icon={<HardDrive size={20} />}
               title={OFFICE.OFFICE_2016.name}
