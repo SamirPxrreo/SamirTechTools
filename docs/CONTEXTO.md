@@ -90,7 +90,7 @@ npm run electron:build   # instalador NSIS + portable en release/
 Start-Process powershell -Verb RunAs -Wait -ArgumentList '-Command','Set-Location "<ruta-del-proyecto>"; npm run electron:build'
 ```
 - **GitHub CLI (`gh` 2.98+):** instalado en `C:\Program Files\GitHub CLI\gh.exe` y en PATH. Token `gho_...` con scopes `repo,workflow` (en credencial `git:https://github.com`). Para subir release: `gh release upload v1.0.1 release\*.exe --clobber` o `gh release create v1.0.1 release\*.exe --title v1.0.1`. Fallback si `gh` falla: `curl -k` con token.
-- **Comando "sube a github" (acordado con el usuario):** significa TODO: `git add/commit/push` + `npm run electron:build` + `gh release upload/create` (no solo push). Mantener versión en `1.0.x` salvo que el usuario pida bump mayor.
+- **Comando "sube a github" = SUBIR TODO LITERALMENTE (acordado con el usuario):** cuando el usuario diga "sube a github" NUNCA es solo `git push`. Es obligatoriamente: 1) `git add . && git commit -m "..." && git push` 2) `npm run electron:build` (en PowerShell como admin) 3) `gh release upload v1.0.1 release\*.exe --clobber` para actualizar los .exe en GitHub. Mantener versión en `1.0.x` salvo que el usuario pida bump mayor.
 - Versión actual: **1.0.1** (Minimal Pro + logo circular + dControl restaurado)
 
 ## Sincronización y entorno de desarrollo
