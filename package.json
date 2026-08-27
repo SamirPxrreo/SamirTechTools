@@ -47,7 +47,7 @@
           ]
         }
       ],
-      "icon": "public/icon.ico",
+      "icon": "public/icon.png",
       "signAndEditExecutable": false,
       "requestedExecutionLevel": "asInvoker"
     },
@@ -59,10 +59,6 @@
       {
         "from": "public/icon.png",
         "to": "icon.png"
-      },
-      {
-        "from": "public/icon.ico",
-        "to": "icon.ico"
       }
     ],
     "portable": {

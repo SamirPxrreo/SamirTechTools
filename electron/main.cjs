@@ -9,14 +9,11 @@ const fs = require('fs');
 let mainWindow;
 
 function createWindow() {
-  // Icono circular para ventana/taskbar - ICO es mas fiable en Windows que PNG
-  let iconPath = path.join(__dirname, '../public/icon.ico');
-  if (!fs.existsSync(iconPath)) iconPath = path.join(__dirname, '../public/icon.png');
+  // Icono circular para ventana/taskbar - PNG funciona bien para BrowserWindow
+  let iconPath = path.join(__dirname, '../public/icon.png');
   if (app.isPackaged) {
-    const resIco = path.join(process.resourcesPath, 'icon.ico');
     const resPng = path.join(process.resourcesPath, 'icon.png');
-    if (fs.existsSync(resIco)) iconPath = resIco;
-    else if (fs.existsSync(resPng)) iconPath = resPng;
+    if (fs.existsSync(resPng)) iconPath = resPng;
   }
   mainWindow = new BrowserWindow({
     width: 1400,
