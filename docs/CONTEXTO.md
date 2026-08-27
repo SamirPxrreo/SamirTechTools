@@ -11,7 +11,7 @@ Aplicación de escritorio para técnicos de soporte informático. Centro de diag
 - **Repositorio local:** **NO hay ruta predeterminada.** Al iniciar un chat la IA **DEBE preguntar** al usuario *"¿Dónde quieres alojar/clonar el proyecto en esta PC?"* y usar **exactamente** esa ruta (verificar con `pwd`/`Get-Location`). Nunca asumir `Desktop`, `Documents` o `C:\` por defecto.
 - **Flujo multi-PC (Casa / Trabajo):** ver `GUIA_SINCRONIZACION.md` en la raíz. Resumen: `git pull` al empezar, `git add . && git commit -m "..." && git push` al terminar.
 - **Git ya configurado:** el token de GitHub está guardado en `%USERPROFILE%\.git-credentials` (credential.helper store). Usuario: `SamirPxrreo`. Solo hacer `git push origin main`.
-- **Release v1.0.1 (actual):** los instaladores (`SamirTechTools-Setup-1.0.1.exe` y `SamirTechTools-Portable-1.0.1.exe`) están en la release `v1.0.1` (id 377371525, la v1.0.0 id 376600075 es legacy). Se suben con `gh release upload v1.0.1 release\*.exe --clobber` (usa `GH_TOKEN` del `.git-credentials`). Fallback: API `POST https://uploads.github.com/repos/.../releases/377371525/assets?name=...`
+ - **Release v1.0.0 (actual, única):** los instaladores (`SamirTechTools-Setup-1.0.0.exe` ~67MB y `SamirTechTools-Portable-1.0.0.exe` ~67MB) están en la release `v1.0.0`. Se suben con `gh release upload v1.0.0 release\*.exe --clobber` (usa `GH_TOKEN` del `.git-credentials`). Fallback: `curl -k` con token.
 
 ## Stack tecnológico
 - **Electron** (ventana frameless, `contextIsolation`, sin nodeIntegration)
@@ -31,12 +31,13 @@ Aplicación de escritorio para técnicos de soporte informático. Centro de diag
 - Botón luna/sol en `Header.tsx`. Guarda en `localStorage('stt-theme')` y pone `data-theme` en `<html>`
 - `src/index.css` define variables CSS `--bg/--surface/--border/--text` + `--dk-*` para `:root` (claro `#f8fafc`) y `[data-theme='dark']` (`#020617`)
 - Diseño **Minimal Pro**: `Outfit` (Google Fonts) para tipografía, `Rounded 20px` global, `slate` palette. Override explícito para `text-slate-*/bg-slate-*/border-slate-*` en ambos temas.
-- Logo circular: `public/logo.jpg` (original 35KB) + `public/icon.png` (512x512 circular con clip). `Header.tsx` lo muestra `rounded-full`.
+ - Logo circular ST: `public/icon.png` (512x512 12KB, slate-900/indigo) + `public/icon.ico` (32KB) + `public/logo.jpg` (35KB legacy). `Header.tsx` usa `import appIcon from '/icon.png'` (Vite, no titileo) y `BrowserWindow` usa `resources/icon.png/.ico` para ventana/taskbar.
 
 ### Navegación
 - Sidebar izquierdo (`src/components/Sidebar.tsx`) con las secciones; Header arriba solo con logo/estado/tema/controles de ventana
 - Las páginas se registran en 3 lugares: `src/types/index.ts` (unión `Page`), `src/components/Sidebar.tsx` (menú), `src/App.tsx` (switch de render)
-- Páginas actuales: `dashboard`, `install` (235 apps WinGet), `windows`, `office`, `extra-apps` (JO-PDF/Obsidian/AionUi), `utilities`, `network`, `uninstaller`, `settings` — `drivers` y `browsers` eliminados (26/08/2026)
+- Orden actual (27/08/2026): `dashboard` -> `install` (235 apps) -> `extra-apps` (JO-PDF/Chrome MSI/Obsidian/AionUi) -> `office` -> `windows` -> `utilities` -> `network` -> `uninstaller` -> `settings` — `drivers` y `browsers` eliminados
+- `InstallContext` (`src/context/InstallContext.tsx`): persiste `statuses/liveOutputs/selected` entre cambios de menú y expone `cancelApp/cancelBatch` vía `winget-cancel` IPC
 
 ### Encoding — IMPORTANTE
 - Todos los archivos son **UTF-8 sin BOM**. Hubo un problema histórico de doble codificación (mojibake "Ã³"), ya corregido
@@ -79,8 +80,8 @@ Aplicación de escritorio para técnicos de soporte informático. Centro de diag
 - Herramientas de sistema y red, **Descargas ISO** con link a UUP dump (`https://uupdump.net/known.php`)
 
 ## Permisos de administrador
-- El ejecutable lleva manifest `requestedExecutionLevel: 'highestAvailable'` (package.json → `build.win`). Requiere `"signAndEditExecutable": true`
-- En dev (`npm run electron:dev`) NO pide admin; solo los builds
+- El ejecutable lleva manifest `requestedExecutionLevel: 'asInvoker'` (package.json → `build.win`, `signAndEditExecutable: false`) — **la app abre sin admin** como WinUtil, para que `winget --ignore-security-hash` no de `cannot be overridden when running as admin`. La elevación se pide solo donde hace falta (`SFC/DISM/Uninstall/clear-ram/Defender` usan `Start-Process -Verb RunAs`, `winget settings --enable InstallerHashOverride` también pide UAC una vez)
+- En dev (`npm run electron:dev`) nunca pide admin
 
 ## Build y release
 ```powershell
@@ -91,9 +92,9 @@ npm run electron:build   # instalador NSIS + portable en release/
 ```powershell
 Start-Process powershell -Verb RunAs -Wait -ArgumentList '-Command','Set-Location "<ruta-que-indique-el-usuario>"; npm run electron:build'
 ```
-- **GitHub CLI (`gh` 2.98+):** instalado en `C:\Program Files\GitHub CLI\gh.exe` y en PATH. Token `gho_...` con scopes `repo,workflow` (en credencial `git:https://github.com`). Para subir release: `gh release upload v1.0.1 release\*.exe --clobber` o `gh release create v1.0.1 release\*.exe --title v1.0.1`. Fallback si `gh` falla: `curl -k` con token.
-- **Comando "sube todo a github" = SUBIR LO NECESARIO PARA QUE LOS EXES FUNCIONEN COMO EN EL CHAT (acordado con el usuario):** cuando el usuario diga "sube todo a github" subir `git add` + `commit` + `push` de lo cambiado, y si cambió `src/`/`electron/`/`resources/` además `npm run electron:build` (PowerShell admin) + `gh release upload v1.0.1 release\*.exe --clobber` para que los EXEs descargables (portable/instalador) tengan exactamente lo último del chat. Si solo cambiaron `*.md`/`docs`, basta con `git push` sin build. Mantener versión en `1.0.x` salvo bump mayor.
-- Versión actual: **1.0.1** (Minimal Pro + logo circular + dControl restaurado)
+ - **GitHub CLI (`gh` 2.98+):** instalado en `C:\Program Files\GitHub CLI\gh.exe` y en PATH. Token `gho_...` con scopes `repo,workflow` (en credencial `git:https://github.com`). Para subir release: `gh release upload v1.0.0 release\*.exe --clobber` o `gh release create v1.0.0 release\*.exe --title v1.0.0`. Fallback: `curl -k` con token.
+- **Comando "sube todo a github" = SUBIR LO NECESARIO PARA QUE LOS EXES FUNCIONEN COMO EN EL CHAT:** cuando el usuario diga "sube todo a github" subir `git add` + `commit` + `push` de lo cambiado, y si cambió `src/`/`electron/`/`resources/` además `npm run electron:build` + `gh release upload v1.0.0 release\*.exe --clobber`. Si solo `*.md`/`docs`, basta `git push`. Mantener `1.0.0` salvo bump mayor.
+- Versión actual: **1.0.0** (Minimal Pro + logo ST circular + dControl + asInvoker + winget hash fix + InstallContext persistente)
 
 ## Sincronización y entorno de desarrollo
 - Ver `GUIA_SINCRONIZACION.md` para el flujo completo entre PCs.
@@ -111,10 +112,10 @@ Set-Content -Path "node_modules\electron\path.txt" -Value "electron.exe" -NoNewl
 - **Minimal Pro**: Header `bg-white/80 backdrop-blur`, sidebar 252px con cards `rounded-2xl`, `ToolCard` `rounded-[20px]`, `SystemCard` `bg-slate-50`. Info del sistema solo en Header (no repetida en sidebar).
 - **Tipografía `Outfit`**, bordes modernos, hover/sombras suaves.
 
-## Estado (26/08/2026)
-- App funcional, probada en Windows 11 x64 (Intel Arc A580 8GB)
-- Instaladores **v1.0.1** publicados en GitHub (Setup 64.4 MB + Portable 64.2 MB) — `gh release upload v1.0.1 --clobber`
-- dControl de Sordum incluido en `resources/defender-control/` (ignorado por `.gitignore`, copiar manualmente en cada clon)
+## Estado (27/08/2026)
+- App funcional, probada en Windows 11 x64 (Intel i7-1165G7, VirtualBox, host 192.168.0.148)
+- Instaladores **v1.0.0** únicos publicados en GitHub (Setup ~67.2MB + Portable ~67MB) — `gh release upload v1.0.0 --clobber` — incluye `icon.png` circular, `asInvoker`, winget hash fix, CPU `Get-Counter`, `InstallContext` con cancelar y registro colapsable
+- dControl de Sordum incluido en `resources/defender-control/` (ya no ignorado, se versiona con `git add -f`)
 
 ## Pendientes / ideas futuras
 1. Firmar el código (code signing) para evitar SmartScreen
