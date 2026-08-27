@@ -19,7 +19,7 @@ Por favor:
 1. Lee `docs/CONTEXTO.md` y `package.json` antes de tocar código
 2. Mantén `electron/main.cjs` (IPC con `ps()`/execFile), `electron/preload.cjs` y `src/types/index.ts` sincronizados
 3. Verifica `src/index.css` si tocas colores del tema claro/oscuro
-4. Después de editar, dime cómo probar con `npm run electron:dev` y cómo subir con `git add . && git commit -m "..." && git push`
+4. Después de editar, dime cómo probar con `npm run electron:dev` y cómo subir con `git add . && git commit -m "..." && git push` — y si cambió `src/`/`electron/`/`resources/` también `npm run electron:build` + `gh release upload v1.0.1 --clobber` para que los EXEs tengan lo último
 
 ---
 

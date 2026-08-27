@@ -11,7 +11,7 @@ Aplicación de escritorio para técnicos de soporte informático. Centro de diag
 - **Repositorio local:** **NO hay ruta predeterminada.** Al iniciar un chat la IA **DEBE preguntar** al usuario *"¿Dónde quieres alojar/clonar el proyecto en esta PC?"* y usar **exactamente** esa ruta (verificar con `pwd`/`Get-Location`). Nunca asumir `Desktop`, `Documents` o `C:\` por defecto.
 - **Flujo multi-PC (Casa / Trabajo):** ver `GUIA_SINCRONIZACION.md` en la raíz. Resumen: `git pull` al empezar, `git add . && git commit -m "..." && git push` al terminar.
 - **Git ya configurado:** el token de GitHub está guardado en `%USERPROFILE%\.git-credentials` (credential.helper store). Usuario: `SamirPxrreo`. Solo hacer `git push origin main`.
-- **Release v1.0.0:** los instaladores (`SamirTechTools-Setup-1.0.0.exe` y `SamirTechTools-Portable-1.0.0.exe`) se suben como assets de la release existente (id 376600075) vía API de GitHub con el token. Proceso: borrar assets viejos con DELETE y subir nuevos con POST a `https://uploads.github.com/repos/.../releases/376600075/assets?name=...`
+- **Release v1.0.1 (actual):** los instaladores (`SamirTechTools-Setup-1.0.1.exe` y `SamirTechTools-Portable-1.0.1.exe`) están en la release `v1.0.1` (id 377371525, la v1.0.0 id 376600075 es legacy). Se suben con `gh release upload v1.0.1 release\*.exe --clobber` (usa `GH_TOKEN` del `.git-credentials`). Fallback: API `POST https://uploads.github.com/repos/.../releases/377371525/assets?name=...`
 
 ## Stack tecnológico
 - **Electron** (ventana frameless, `contextIsolation`, sin nodeIntegration)
@@ -36,6 +36,7 @@ Aplicación de escritorio para técnicos de soporte informático. Centro de diag
 ### Navegación
 - Sidebar izquierdo (`src/components/Sidebar.tsx`) con las secciones; Header arriba solo con logo/estado/tema/controles de ventana
 - Las páginas se registran en 3 lugares: `src/types/index.ts` (unión `Page`), `src/components/Sidebar.tsx` (menú), `src/App.tsx` (switch de render)
+- Páginas actuales: `dashboard`, `install` (235 apps WinGet), `windows`, `office`, `extra-apps` (JO-PDF/Obsidian/AionUi), `utilities`, `network`, `uninstaller`, `settings` — `drivers` y `browsers` eliminados (26/08/2026)
 
 ### Encoding — IMPORTANTE
 - Todos los archivos son **UTF-8 sin BOM**. Hubo un problema histórico de doble codificación (mojibake "Ã³"), ya corregido
@@ -44,17 +45,18 @@ Aplicación de escritorio para técnicos de soporte informático. Centro de diag
 ## Funcionalidades implementadas
 
 ### Diagnóstico (Dashboard)
-- CPU/RAM/GPU/discos/red/Windows vía CIM/WMI
-- **VRAM**: `Win32_VideoController.AdapterRAM` se limita a 4GB (uint32), así que la VRAM real se lee del registro `HKLM\SYSTEM\CurrentControlSet\Control\Class\{4d36e968-e325-11ce-bfc1-08002be10318}\00XX` → `HardwareInformation.qpmemorySize` (match por DriverDesc)
+- CPU/RAM/GPU/discos/red/Windows vía CIM/WMI — **CPU/RAM en vivo cada 2s** (`App.tsx` polling) y **VRAM fix para Intel Arc** en un solo spawn PS
+- **VRAM**: `Win32_VideoController.AdapterRAM` se limita a 4GB (uint32), así que la VRAM real se lee del registro `HKLM\...\0000` → `HardwareInformation.qwMemorySize` (Intel Arc 8GB), fallback `qpmemorySize`/`memorySize`. Optimizado a 1 solo `ps()` (antes 5 spawns causaban delay negro)
 - **Liberar RAM**: IPC `clear-ram` que purga la standby list vía `NtSetSystemInformation` (C# embebido con Add-Type, ejecutado elevado desde temp). El método viejo (SetProcessWorkingSetSize) NO funcionaba
+- **SystemCard**: texto `select-text` para copiar con menú nativo (click derecho), `break-words` + `col-span-2` para placa base larga
 - Generador de reporte .txt al Escritorio
 
-### Instalar Apps (página nueva, la estrella)
-- **235 apps** catálogo en `src/data/apps.ts`, generado desde el `applications.json` de winutil + extras
-- Instala vía **WinGet** (`winget install --id X -e --silent`), IPC `winget-install` con timeout de 15 min
-- Iconos: favicons de `https://icons.duckduckgo.com/ip3/<dominio>.ico` (Google s2 no cargaba en Electron)
+### Instalar Apps (páginas `install` + `extra-apps`)
+- **235 apps** catálogo en `src/data/apps.ts` (winutil + extras) — `Instalar Apps` usa WinGet con **progreso en vivo** (`spawn` + `winget-progress` → `InstallPage.tsx`)
+- IPC `winget-install` resuelve `Get-Command winget` (fix para exe empaquetado), timeout 15 min, sin `--silent` para ver barra, `--source winget` evita `0x8a15005e`
+- **Otras Apps** (`ExtraAppsPage.tsx`): JO-PDF (direct `jopdf.com`), Obsidian (`winget Obsidian.Obsidian`), AionUi 2.1.44 (MediaFire) → `C:\ExtraApps`
+- Iconos: favicons `https://icons.duckduckgo.com/ip3/<dominio>.ico` (Google s2 no cargaba), cards con click en toda la área (fix logo download)
 - Selección múltiple con instalación en cola + modal de confirmación antes de instalar
-- Para agregar apps: editar `src/data/apps.ts`
 
 ### Windows
 - SFC, DISM (check/scan/restore), CHKDSK, Windows Update
@@ -109,9 +111,9 @@ Set-Content -Path "node_modules\electron\path.txt" -Value "electron.exe" -NoNewl
 - **Minimal Pro**: Header `bg-white/80 backdrop-blur`, sidebar 252px con cards `rounded-2xl`, `ToolCard` `rounded-[20px]`, `SystemCard` `bg-slate-50`. Info del sistema solo en Header (no repetida en sidebar).
 - **Tipografía `Outfit`**, bordes modernos, hover/sombras suaves.
 
-## Estado (agosto 2026)
-- App funcional, probada en Windows 10/11 x64
-- Instaladores publicados en la release v1.0.0 de GitHub
+## Estado (26/08/2026)
+- App funcional, probada en Windows 11 x64 (Intel Arc A580 8GB)
+- Instaladores **v1.0.1** publicados en GitHub (Setup 64.4 MB + Portable 64.2 MB) — `gh release upload v1.0.1 --clobber`
 - dControl de Sordum incluido en `resources/defender-control/` (ignorado por `.gitignore`, copiar manualmente en cada clon)
 
 ## Pendientes / ideas futuras
