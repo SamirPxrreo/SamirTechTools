@@ -26,9 +26,9 @@ interface SidebarProps {
 const menuItems: { id: Page; label: string; icon: React.ReactNode; desc: string }[] = [
   { id: 'dashboard', label: 'Diagnóstico', icon: <LayoutDashboard size={16} />, desc: 'Vista general' },
   { id: 'install', label: 'Instalar Apps', icon: <Download size={16} />, desc: '235 apps' },
-  { id: 'windows', label: 'Windows', icon: <Monitor size={16} />, desc: 'SFC / DISM' },
+  { id: 'extra-apps', label: 'Otras Apps', icon: <AppWindow size={16} />, desc: 'JO-PDF, Chrome...' },
   { id: 'office', label: 'Office', icon: <FileText size={16} />, desc: 'Suite' },
-  { id: 'extra-apps', label: 'Otras Apps', icon: <AppWindow size={16} />, desc: 'JO-PDF, Obsidian...' },
+  { id: 'windows', label: 'Windows', icon: <Monitor size={16} />, desc: 'SFC / DISM' },
   { id: 'utilities', label: 'Utilidades', icon: <Wrench size={16} />, desc: 'Limpieza' },
   { id: 'network', label: 'Red', icon: <Network size={16} />, desc: 'IP / DNS' },
   { id: 'uninstaller', label: 'Desinstalador', icon: <Trash2 size={16} />, desc: 'Limpieza profunda' },
