@@ -568,6 +568,27 @@ ipcMain.handle('execute-tool', async (event, { tool, args }) => {
 
 ipcMain.handle('run-command', async (event, command) => await runCommand(command));
 
+const wingetChildren = new Map();
+ipcMain.handle('winget-cancel', async (event, wingetId) => {
+  const child = wingetChildren.get(wingetId);
+  if (child) {
+    try { child.kill('SIGTERM'); } catch {}
+    try { child.kill(); } catch {}
+    wingetChildren.delete(wingetId);
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('winget-progress', { wingetId, chunk: '\n[Cancelado por usuario]\n', isErr: true });
+    }
+    return { success: true };
+  }
+  // matar cualquier winget en curso si id es 'all'
+  if (wingetId === 'all') {
+    for (const [k, c] of wingetChildren) { try { c.kill(); } catch {} }
+    wingetChildren.clear();
+    return { success: true };
+  }
+  return { success: false, output: 'No hay instalacion en curso para ' + wingetId };
+});
+
 // Instalar app via winget con progreso en tiempo real (stream stdout -> winget-progress)
 // Fix: 1) winget no reconocido -> busca en WindowsApps / WindowsApps alias, 2) Installer hash does not match -> reintento sin admin + --ignore-security-hash
 ipcMain.handle('winget-install', async (event, wingetId) => {
@@ -620,6 +641,7 @@ ipcMain.handle('winget-install', async (event, wingetId) => {
   function runWinget(fullCmd, timeoutMs = 900000) {
     return new Promise((resolve) => {
       const child = spawn(fullCmd, { shell: true, windowsHide: true });
+      wingetChildren.set(wingetId, child);
       let out = '';
       const send = (chunk, isErr = false) => {
         const text = chunk.toString();
@@ -630,13 +652,15 @@ ipcMain.handle('winget-install', async (event, wingetId) => {
       };
       child.stdout.on('data', (d) => send(d, false));
       child.stderr.on('data', (d) => send(d, true));
-      const t = setTimeout(() => { try { child.kill(); } catch {} resolve({ success: false, output: out + '\nTimeout: la instalacion tardo demasiado', code: -1 }); }, timeoutMs);
+      const t = setTimeout(() => { try { child.kill(); } catch {} wingetChildren.delete(wingetId); resolve({ success: false, output: out + '\nTimeout: la instalacion tardo demasiado', code: -1 }); }, timeoutMs);
       child.on('close', (code) => {
         clearTimeout(t);
-        if (code === 0 || /instalado|successfully installed/i.test(out)) resolve({ success: true, output: out, code: code || 0 });
+        wingetChildren.delete(wingetId);
+        if (/Cancelado por usuario/i.test(out)) resolve({ success: false, output: out, code: -1 });
+        else if (code === 0 || /instalado|successfully installed/i.test(out)) resolve({ success: true, output: out, code: code || 0 });
         else resolve({ success: false, output: out || `Exit code ${code}`, code: code || -1 });
       });
-      child.on('error', (err) => { clearTimeout(t); resolve({ success: false, output: out + String(err), code: -1 }); });
+      child.on('error', (err) => { clearTimeout(t); wingetChildren.delete(wingetId); resolve({ success: false, output: out + String(err), code: -1 }); });
     });
   }
 
@@ -657,9 +681,9 @@ ipcMain.handle('winget-install', async (event, wingetId) => {
     if (mainWindow && !mainWindow.isDestroyed()) {
       mainWindow.webContents.send('winget-progress', { wingetId, chunk: '\n[SamirTechTools] Hash no coincide. Reintentando sin admin + --ignore-security-hash...\n', isErr: false });
     }
-    // Intentar habilitar override global (best-effort, no bloquea si falla)
+    // Intentar habilitar override global (requiere admin) - best-effort
+    try { await ps('Start-Process winget -ArgumentList "settings --enable InstallerHashOverride" -Verb RunAs -Wait -WindowStyle Hidden 2>&1 | Out-String'); } catch {}
     try { await runWinget(`${wingetCmd} settings --enable InstallerHashOverride`, 15000); } catch {}
-    try { await ps('winget settings --enable InstallerHashOverride 2>&1 | Out-String'); } catch {}
 
     // Este error NO se puede ignorar si se ejecuta como admin ("This cannot be overridden when running as admin")
     // Por eso el reintento debe ser SIN elevacion via runas /trustlevel:0x20000 (non-admin)
