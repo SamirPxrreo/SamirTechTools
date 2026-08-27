@@ -661,13 +661,20 @@ ipcMain.handle('winget-install', async (event, wingetId) => {
     let retryCmd;
     if (isAdminMsg) {
       // De-elevate: runas con trustlevel 0x20000 ejecuta sin admin incluso si la app esta elevada
-      retryCmd = `runas /trustlevel:0x20000 "${wingetCmd.replace(/"/g, '')} ${retryArgs}"`;
-      // runas no transmite stdout bien en algunos casos, fallback a powershell Start-Process sin -Verb RunAs
+      // Usar 'winget' sin ruta completa (evita espacios) y comillas simples para el id
+      const argsForRunas = retryArgs.replace(/"/g, "'");
+      retryCmd = `runas /trustlevel:0x20000 "winget ${argsForRunas}"`;
       result = await runWinget(retryCmd);
-      if (!result.success && /runas/i.test(result.output)) {
-        // fallback: powershell sin elevacion
-        const psRetry = `powershell -NoProfile -Command "Start-Process -FilePath ${wingetCmd} -ArgumentList '${retryArgs}' -Wait -NoNewWindow; exit $LASTEXITCODE"`;
-        result = await runWinget(psRetry);
+      if (!result.success) {
+        // fallback 1: powershell Start-Process sin elevacion via explorer (explorer siempre corre sin admin)
+        const psRetry = `powershell -NoProfile -Command "$cmd=\\'winget ${argsForRunas}\\'; Start-Process cmd -ArgumentList \\'/c \\' + $cmd + \\'\\' -WindowStyle Hidden -Wait"`;
+        const r2 = await runWinget(psRetry);
+        if (r2.success) result = r2;
+        else {
+          // fallback 2: directo con winget ya con flag (a veces runas no transmite stdout)
+          const directRetry = `winget ${argsForRunas}`;
+          result = await runWinget(directRetry);
+        }
       }
     } else {
       retryCmd = `${wingetCmd} ${retryArgs}`;
