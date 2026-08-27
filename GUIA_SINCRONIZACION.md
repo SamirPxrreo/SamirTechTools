@@ -91,9 +91,9 @@ Y viceversa: cuando termines en casa haces `add + commit + push`, y al llegar al
 | Subir cambios a GitHub | `git push` |
 | Bajar cambios de la otra PC | `git pull` |
 | Ver historial | `git log --oneline` |
-| **"Sube a github" = SUBIR SOLO LO NECESARIO** | `git add/commit/push` de lo cambiado + si cambió `src/`/`electron/`/`resources/` → `npm run electron:build` (admin) + `gh release upload v1.0.1 release\*.exe --clobber` |
+| **"Sube todo a github" = SUBIR LO NECESARIO PARA QUE LOS EXES TENGAN LO ÚLTIMO DEL CHAT** | `git add/commit/push` de lo cambiado + si cambió `src/`/`electron/`/`resources/` → `npm run electron:build` (admin) + `gh release upload v1.0.1 release\*.exe --clobber` |
 
-> **⚠️ "Sube a github" incluye build solo si cambió código del exe.** Si solo son `*.md`/`docs`, basta con `git push`. Ver `docs/CONTEXTO.md` > Build y release.
+> **⚠️ "Sube todo a github" = que los EXEs descargables funcionen tal cual se dejó en el chat.** Si solo son `*.md`/`docs`, basta con `git push`. Ver `docs/CONTEXTO.md` > Build y release.
 
 ---
 

@@ -90,7 +90,7 @@ npm run electron:build   # instalador NSIS + portable en release/
 Start-Process powershell -Verb RunAs -Wait -ArgumentList '-Command','Set-Location "<ruta-que-indique-el-usuario>"; npm run electron:build'
 ```
 - **GitHub CLI (`gh` 2.98+):** instalado en `C:\Program Files\GitHub CLI\gh.exe` y en PATH. Token `gho_...` con scopes `repo,workflow` (en credencial `git:https://github.com`). Para subir release: `gh release upload v1.0.1 release\*.exe --clobber` o `gh release create v1.0.1 release\*.exe --title v1.0.1`. Fallback si `gh` falla: `curl -k` con token.
-- **Comando "sube a github" = SUBIR SOLO LO NECESARIO (acordado con el usuario):** cuando el usuario diga "sube a github" hacer `git add` + `commit` + `push` solo de lo cambiado. Si hubo cambios en `src/`, `electron/` o `resources/` (que afectan el exe), entonces además: `npm run electron:build` (en PowerShell como admin) + `gh release upload v1.0.1 release\*.exe --clobber`. Si solo cambiaron `*.md`/`docs`, no hace falta build. Mantener versión en `1.0.x` salvo que el usuario pida bump mayor.
+- **Comando "sube todo a github" = SUBIR LO NECESARIO PARA QUE LOS EXES FUNCIONEN COMO EN EL CHAT (acordado con el usuario):** cuando el usuario diga "sube todo a github" subir `git add` + `commit` + `push` de lo cambiado, y si cambió `src/`/`electron/`/`resources/` además `npm run electron:build` (PowerShell admin) + `gh release upload v1.0.1 release\*.exe --clobber` para que los EXEs descargables (portable/instalador) tengan exactamente lo último del chat. Si solo cambiaron `*.md`/`docs`, basta con `git push` sin build. Mantener versión en `1.0.x` salvo bump mayor.
 - Versión actual: **1.0.1** (Minimal Pro + logo circular + dControl restaurado)
 
 ## Sincronización y entorno de desarrollo
