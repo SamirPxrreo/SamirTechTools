@@ -16,9 +16,9 @@ Solo se hace **una vez por PC**.
 
 ### Pasos
 ```powershell
-# 1. Ve a donde quieres guardarlo (Escritorio, Documentos, etc.)
+# 1. Elige dónde guardarlo (ej: Escritorio, Documentos, D:\Proyectos, etc.)
 # IMPORTANTE: No lo clones directo en C:\, usa tu carpeta de usuario
-cd $env:USERPROFILE\Desktop
+cd "D:\User\Desktop"  # <-- cambia por la ruta que prefieras
 
 # 2. Clona el repositorio (descarga todo)
 git clone https://github.com/SamirPxrreo/SamirTechTools.git
@@ -66,8 +66,8 @@ git push
 
 **En el PC Personal (al llegar a casa y querer continuar):**
 ```powershell
-# 1. Entra a la carpeta del proyecto
-cd $env:USERPROFILE\Desktop\SamirTechTools
+# 1. Entra a la carpeta del proyecto (usa tu ruta real)
+cd "D:\User\Desktop\SamirTechTools"  # <-- ajusta a donde lo tengas
 
 # 2. Bajar lo nuevo del trabajo
 git pull

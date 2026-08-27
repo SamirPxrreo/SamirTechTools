@@ -8,7 +8,7 @@ Aplicación de escritorio para técnicos de soporte informático. Centro de diag
 
 ## Dónde está el proyecto
 - **GitHub:** https://github.com/SamirPxrreo/SamirTechTools (rama `main`)
-- **Repositorio local:** puede estar en cualquier PC en `C:\SamirTechTools`, `%USERPROFILE%\Desktop\SamirTechTools` o `Documents\SamirTechTools`. **NO clonar directo en `C:\` si el antivirus/proxy bloquea la descarga de Electron** — preferir `Desktop` o `Documents`.
+- **Repositorio local:** puede estar en **cualquier ubicación** — al iniciar un chat la IA debe preguntar *"¿Dónde tienes la carpeta SamirTechTools en esta PC?"* y usar esa ruta (verificar con `pwd`/`Get-Location`). Ejemplos: `D:\User\Desktop\SamirTechTools`, `%USERPROFILE%\Desktop\SamirTechTools`, `Documents\SamirTechTools`. **Evitar clonar directo en `C:\` si el antivirus/proxy bloquea la descarga de Electron.**
 - **Flujo multi-PC (Casa / Trabajo):** ver `GUIA_SINCRONIZACION.md` en la raíz. Resumen: `git pull` al empezar, `git add . && git commit -m "..." && git push` al terminar.
 - **Git ya configurado:** el token de GitHub está guardado en `%USERPROFILE%\.git-credentials` (credential.helper store). Usuario: `SamirPxrreo`. Solo hacer `git push origin main`.
 - **Release v1.0.0:** los instaladores (`SamirTechTools-Setup-1.0.0.exe` y `SamirTechTools-Portable-1.0.0.exe`) se suben como assets de la release existente (id 376600075) vía API de GitHub con el token. Proceso: borrar assets viejos con DELETE y subir nuevos con POST a `https://uploads.github.com/repos/.../releases/376600075/assets?name=...`
@@ -87,7 +87,7 @@ npm run electron:build   # instalador NSIS + portable en release/
 ```
 - **El build de electron-builder falla sin admin** (winCodeSign usa symlinks). Ejecutarlo desde una PowerShell elevada:
 ```powershell
-Start-Process powershell -Verb RunAs -Wait -ArgumentList '-Command','Set-Location $env:USERPROFILE\Desktop\SamirTechTools; npm run electron:build'
+Start-Process powershell -Verb RunAs -Wait -ArgumentList '-Command','Set-Location "<ruta-del-proyecto>"; npm run electron:build'
 ```
 - **GitHub CLI (`gh` 2.98+):** instalado en `C:\Program Files\GitHub CLI\gh.exe` y en PATH. Token `gho_...` con scopes `repo,workflow` (en credencial `git:https://github.com`). Para subir release: `gh release upload v1.0.1 release\*.exe --clobber` o `gh release create v1.0.1 release\*.exe --title v1.0.1`. Fallback si `gh` falla: `curl -k` con token.
 - **Comando "sube a github" (acordado con el usuario):** significa TODO: `git add/commit/push` + `npm run electron:build` + `gh release upload/create` (no solo push). Mantener versión en `1.0.x` salvo que el usuario pida bump mayor.
@@ -96,7 +96,7 @@ Start-Process powershell -Verb RunAs -Wait -ArgumentList '-Command','Set-Locatio
 ## Sincronización y entorno de desarrollo
 - Ver `GUIA_SINCRONIZACION.md` para el flujo completo entre PCs.
 - **Node.js requerido:** 18+ pero recomendado **20 LTS**. Node 26 bloquea el postinstall de Electron (`install scripts blocked`) y requiere descarga manual del binario.
-- **Ubicación recomendada:** `%USERPROFILE%\Desktop\SamirTechTools` o `Documents`. Evitar `C:\` directo.
+- **Ubicación:** preguntar al usuario dónde está / dónde quiere clonar el proyecto. Evitar `C:\` directo.
 - **Script dev:** `npm run electron:dev` debe ser `concurrently "vite" "wait-on http://localhost:5173 && electron . --dev"` — el flag `--dev` hace que `electron/main.cjs` cargue `http://localhost:5173` en lugar de `dist/index.html`.
 - Si `node_modules/electron/dist` solo contiene `locales`, descargar manualmente:
 ```powershell
