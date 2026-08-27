@@ -47,7 +47,7 @@
           ]
         }
       ],
-      "icon": "public/icon.png",
+      "icon": "public/icon.ico",
       "signAndEditExecutable": false,
       "requestedExecutionLevel": "asInvoker"
     },
