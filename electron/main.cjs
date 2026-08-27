@@ -80,10 +80,22 @@ ipcMain.handle('get-cpu-info', async () => {
   const cpu = cpus[0];
   let usage = 0;
   try {
-    const r = await ps('Get-CimInstance Win32_Processor | Select-Object -First 1 -ExpandProperty LoadPercentage');
-    const v = parseInt(r.output.trim());
-    if (!isNaN(v)) usage = v;
-  } catch {}
+    // Medición precisa: Get-Counter promedia 2 muestras en 500ms (más real que LoadPercentage instantáneo)
+    const r = await ps('(Get-Counter "\\Processor(_Total)\\% Processor Time" -SampleInterval 1 -MaxSamples 2 | Select-Object -ExpandProperty CounterSamples | Select-Object -ExpandProperty CookedValue | Measure-Object -Average).Average');
+    const v = Math.round(parseFloat(r.output.trim()));
+    if (!isNaN(v) && v >= 0 && v <= 100) usage = v;
+    else {
+      const r2 = await ps('Get-CimInstance Win32_Processor | Select-Object -First 1 -ExpandProperty LoadPercentage');
+      const v2 = parseInt(r2.output.trim());
+      if (!isNaN(v2)) usage = v2;
+    }
+  } catch {
+    try {
+      const r = await ps('Get-CimInstance Win32_Processor | Select-Object -First 1 -ExpandProperty LoadPercentage');
+      const v = parseInt(r.output.trim());
+      if (!isNaN(v)) usage = v;
+    } catch {}
+  }
   let temp = null;
   try {
     const r = await ps('Get-CimInstance MSAcpi_ThermalZoneTemperature -Namespace root/wmi | Select-Object -First 1 -ExpandProperty CurrentTemperature');
@@ -703,7 +715,7 @@ function downloadFile(url, destPath, onProgress) {
         if (code === 0 && fs.existsSync(destPath)) {
           try {
             const stat = fs.statSync(destPath);
-            // Detectar HTML camuflado como .exe (MediaFire expirado devuelve 34KB HTML con <!DOCTYPE)
+            // Detectar HTML/archivo corrupto (MediaFire expirado devuelve 34KB HTML con <!DOCTYPE> o archivo <1MB para un .exe que debería pesar >50MB)
             if (stat.size > 0 && stat.size < 300000) {
               try {
                 const head = fs.readFileSync(destPath, 'utf-8').slice(0, 2000).toLowerCase();
@@ -712,6 +724,11 @@ function downloadFile(url, destPath, onProgress) {
                   return res({ ok: false, err: 'El link expiro o devolvio pagina HTML (MediaFire). Abre el link en el navegador manualmente. Tamano: ' + stat.size + ' bytes. ' + stderr.slice(-500) });
                 }
               } catch {}
+            }
+            // Para AionUi/MediaFire: si el .exe pesa <5MB es claramente pagina HTML/error (AionUi pesa ~150MB)
+            if (destPath.toLowerCase().endsWith('.exe') && stat.size > 0 && stat.size < 5 * 1024 * 1024 && /mediafire|aionui/i.test(url + destPath)) {
+              try { fs.unlinkSync(destPath); } catch {}
+              return res({ ok: false, err: 'Archivo demasiado pequeño (' + stat.size + ' bytes) para ser el instalador. El link de MediaFire seguramente expiro. Abre el link en el navegador manualmente.' });
             }
             if (stat.size === 0) { try { fs.unlinkSync(destPath); } catch {} return res({ ok: false, err: 'Archivo vacio (0 bytes). ' + stderr.slice(-500) }); }
             res({ ok: true, size: stat.size });
