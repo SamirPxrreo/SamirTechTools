@@ -46,8 +46,8 @@
         }
       ],
       "icon": "public/icon.png",
-      "signAndEditExecutable": true,
-      "requestedExecutionLevel": "highestAvailable"
+      "signAndEditExecutable": false,
+      "requestedExecutionLevel": "asInvoker"
     },
     "extraResources": [
       {
