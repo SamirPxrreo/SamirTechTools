@@ -1,9 +1,19 @@
 import React, { useState } from 'react';
-import { AppWindow, Download, ExternalLink, Loader, FileText, StickyNote, Box } from 'lucide-react';
+import { AppWindow, Download, ExternalLink, Loader, FileText, StickyNote, Box, Globe } from 'lucide-react';
 import { ToolCard, ConsoleOutput, ConfirmModal } from '../components';
 import { useLogs } from '../context/LogContext';
 
 const extraApps = [
+  {
+    id: 'chrome',
+    name: 'Google Chrome',
+    description: 'Navegador esencial. Respaldo directo offline (por si falla winget con hash). También disponible vía winget en "Instalar Aplicaciones".',
+    url: 'https://dl.google.com/chrome/install/GoogleChromeStandaloneEnterprise64.msi',
+    fileName: 'GoogleChromeStandaloneEnterprise64.msi',
+    website: 'https://www.google.com/chrome/',
+    accentColor: 'yellow',
+    icon: Globe,
+  },
   {
     id: 'jopdf',
     name: 'JO-PDF',
@@ -27,7 +37,7 @@ const extraApps = [
   {
     id: 'aionui',
     name: 'AionUi 2.1.44',
-    description: 'Versión 2.1.44 clásica (MediaFire). La nueva quitó opciones, esta es la que te gusta.',
+    description: 'Versión 2.1.44 clásica (MediaFire). Si la descarga queda congelada/30KB es porque el link directo expiro: usa "Sitio oficial" o abre el link en el navegador.',
     url: 'https://download1587.mediafire.com/3jf23j9r3rxgKJHWyyx_spUYY7HiHDzRizm0ONKOVDPkyk_8haWHxKXoL2BkzXbYn42VYPTpfdQeAtWFrV3jcqlcH-J5K1ODhz1ArLKnCd_JdVSxXT4aCf4PwX55WuXRFn17vR2YNK9X0Ibfufym7v7xtyKGDdQ2KL6_eYJQsfKBY3E/iaq4v6j4eucftwq/AionUi-2.1.44-win-x64.exe',
     fileName: 'AionUi-2.1.44-win-x64.exe',
     website: 'https://github.com/aionui/aionui',
@@ -58,16 +68,38 @@ export function ExtraAppsPage() {
             const r = await window.electronAPI.wingetInstall(wingetId);
             setOutput(r.output || '');
             addLog('Extra Apps', app.name, r.success ? 'Instalado' : 'Error', r.success ? 'success' : 'error');
+            // Fallback Chrome: si winget falla por hash, ofrecer descarga directa
+            if (!r.success && /hash does not match|no se reconoce/i.test(r.output || '') && app.id === 'obsidian') {
+              setOutput((r.output || '') + '\n\nTip: Si es error de hash, prueba el Chrome directo de esta misma seccion o reintenta winget con --ignore-security-hash en terminal sin admin.');
+            }
           } else {
             const dlDir = 'C:\\ExtraApps';
             await window.electronAPI.runCommand(`if not exist "${dlDir}" mkdir "${dlDir}"`);
             const dest = `${dlDir}\\${app.fileName}`;
             addLog('Extra Apps', app.name, `Descargando a ${dest}`, 'info');
             const r = await window.electronAPI.downloadFile(app.url, dest);
-            if (!r.success) { setOutput(`Error: ${r.output}`); addLog('Extra Apps', app.name, String(r.output), 'error'); setLoading(false); return; }
+            if (!r.success) {
+              const msg = String(r.output || '');
+              const isMediaFire = app.url.includes('mediafire.com') || msg.toLowerCase().includes('mediafire') || msg.toLowerCase().includes('pagina html');
+              if (isMediaFire) {
+                setOutput(`Error: ${msg}\n\nEl link directo de MediaFire expiro (devuelve pagina HTML de 34KB, sin icono). Solucion: se abrira el navegador con el link y la carpeta C:\\ExtraApps. Descargalo manualmente desde MediaFire y colocalo en C:\\ExtraApps.`);
+                addLog('Extra Apps', app.name, 'Link MediaFire expirado - abriendo navegador', 'error');
+                window.electronAPI.openExternal(app.url);
+                window.electronAPI.openPath(dlDir);
+              } else {
+                setOutput(`Error: ${msg}`);
+                addLog('Extra Apps', app.name, msg, 'error');
+              }
+              setLoading(false); return;
+            }
             setOutput(`Descargado: ${dest} (${r.size} bytes). Abriendo...`);
             addLog('Extra Apps', app.name, `Descargado ${app.fileName}`, 'success');
-            await window.electronAPI.runCommand(`powershell -Command "Start-Process -FilePath '${dest}' -Verb RunAs"`);
+            // MSI necesita msiexec /i, EXE directo con RunAs
+            if (dest.toLowerCase().endsWith('.msi')) {
+              await window.electronAPI.runCommand(`powershell -Command "Start-Process msiexec.exe -ArgumentList '/i \\"${dest}\\"' -Verb RunAs -Wait"`);
+            } else {
+              await window.electronAPI.runCommand(`powershell -Command "Start-Process -FilePath '${dest}' -Verb RunAs"`);
+            }
             window.electronAPI.showItemInFolder(dest);
           }
         } catch (e) { setOutput(String(e)); }

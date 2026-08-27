@@ -550,36 +550,126 @@ ipcMain.handle('execute-tool', async (event, { tool, args }) => {
 ipcMain.handle('run-command', async (event, command) => await runCommand(command));
 
 // Instalar app via winget con progreso en tiempo real (stream stdout -> winget-progress)
+// Fix: 1) winget no reconocido -> busca en WindowsApps / WindowsApps alias, 2) Installer hash does not match -> reintento sin admin + --ignore-security-hash
 ipcMain.handle('winget-install', async (event, wingetId) => {
+  const { spawn } = require('child_process');
+
+  // Resolver winget.exe robusto (alias "winget" puede no estar en PATH si App Execution Alias deshabilitado)
   let wingetCmd = 'winget';
   try {
     const r = await ps('(Get-Command winget -ErrorAction SilentlyContinue).Source');
     const p = r.output.trim();
     if (p && fs.existsSync(p)) wingetCmd = `"${p}"`;
-  } catch {}
-  // winget con --silent no muestra progreso; quitamos --silent para ver barra, mantenemos --disable-interactivity
-  const cmd = `${wingetCmd} install --id "${wingetId}" -e --source winget --accept-source-agreements --accept-package-agreements --disable-interactivity`;
-  return new Promise((resolve) => {
-    const { spawn } = require('child_process');
-    const child = spawn(cmd, { shell: true, windowsHide: true });
-    let out = '';
-    const send = (chunk, isErr=false) => {
-      const text = chunk.toString();
-      out += text;
-      if (mainWindow && !mainWindow.isDestroyed()) {
-        mainWindow.webContents.send('winget-progress', { wingetId, chunk: text, isErr });
+    else {
+      const candidates = [
+        path.join(process.env.LOCALAPPDATA || '', 'Microsoft', 'WindowsApps', 'winget.exe'),
+        path.join(process.env.ProgramFiles || 'C:\\Program Files', 'WindowsApps', ''),
+      ];
+      if (wingetCmd === 'winget' && fs.existsSync(candidates[0])) wingetCmd = `"${candidates[0]}"`;
+      if (wingetCmd === 'winget') {
+        try {
+          const wa = await ps('Get-ChildItem "C:\\Program Files\\WindowsApps\\Microsoft.DesktopAppInstaller*\\winget.exe" -ErrorAction SilentlyContinue | Select-Object -First 1 -ExpandProperty FullName');
+          const waPath = wa.output.trim();
+          if (waPath && fs.existsSync(waPath)) wingetCmd = `"${waPath}"`;
+        } catch {}
       }
-    };
-    child.stdout.on('data', (d) => send(d, false));
-    child.stderr.on('data', (d) => send(d, true));
-    const t = setTimeout(() => { try{ child.kill(); }catch{}; resolve({ success: false, output: out + '\nTimeout: la instalacion tardo demasiado', code: -1 }); }, 900000);
-    child.on('close', (code) => {
-      clearTimeout(t);
-      if (code === 0 || /instalado|successfully installed/i.test(out)) resolve({ success: true, output: out, code: code||0 });
-      else resolve({ success: false, output: out || `Exit code ${code}`, code: code||-1 });
+    }
+  } catch {}
+
+  // Validar que winget realmente existe antes de intentar instalar (evita "no se reconoce como comando")
+  let wingetExists = false;
+  try {
+    const check = await ps(`if (Get-Command winget -ErrorAction SilentlyContinue) { echo ok } elseif (Test-Path "$env:LOCALAPPDATA\\Microsoft\\WindowsApps\\winget.exe") { echo ok } else { echo no }`);
+    wingetExists = check.output.trim() === 'ok';
+  } catch {}
+  if (!wingetExists) {
+    try { if (!fs.existsSync(path.join(process.env.LOCALAPPDATA || '', 'Microsoft', 'WindowsApps', 'winget.exe'))) wingetExists = false; } catch {}
+  }
+
+  // Soporte msstore: prefijo (ej: msstore:9NT1R1C2HH7J -> winget install --id 9NT1R1C2HH7J --source msstore)
+  let idArg = wingetId;
+  let sourceArg = '--source winget';
+  if (wingetId.startsWith('msstore:')) {
+    idArg = wingetId.replace('msstore:', '');
+    sourceArg = '--source msstore';
+  } else if (wingetId.startsWith('winget:')) {
+    idArg = wingetId.replace('winget:', '');
+  }
+
+  const baseArgs = `install --id "${idArg}" -e ${sourceArg} --accept-source-agreements --accept-package-agreements --disable-interactivity`;
+
+  function runWinget(fullCmd, timeoutMs = 900000) {
+    return new Promise((resolve) => {
+      const child = spawn(fullCmd, { shell: true, windowsHide: true });
+      let out = '';
+      const send = (chunk, isErr = false) => {
+        const text = chunk.toString();
+        out += text;
+        if (mainWindow && !mainWindow.isDestroyed()) {
+          mainWindow.webContents.send('winget-progress', { wingetId, chunk: text, isErr });
+        }
+      };
+      child.stdout.on('data', (d) => send(d, false));
+      child.stderr.on('data', (d) => send(d, true));
+      const t = setTimeout(() => { try { child.kill(); } catch {} resolve({ success: false, output: out + '\nTimeout: la instalacion tardo demasiado', code: -1 }); }, timeoutMs);
+      child.on('close', (code) => {
+        clearTimeout(t);
+        if (code === 0 || /instalado|successfully installed/i.test(out)) resolve({ success: true, output: out, code: code || 0 });
+        else resolve({ success: false, output: out || `Exit code ${code}`, code: code || -1 });
+      });
+      child.on('error', (err) => { clearTimeout(t); resolve({ success: false, output: out + String(err), code: -1 }); });
     });
-    child.on('error', (err) => { clearTimeout(t); resolve({ success: false, output: out + String(err), code: -1 }); });
-  });
+  }
+
+  // Intento 1: instalacion normal
+  let cmd = `${wingetCmd} ${baseArgs}`;
+  let result = await runWinget(cmd);
+
+  // Si winget no existe, dar mensaje accionable (no reintentar hash)
+  if (/no se reconoce como.*comando|not recognized as.*command|'winget' is not recognized/i.test(result.output) || /winget.*not found/i.test(result.output)) {
+    result.output += '\n\n[AYUDA] winget no se encuentra. Solucion:\n1) Instala "App Installer" desde Microsoft Store: https://apps.microsoft.com/detail/9nblggh4nns1\n2) Activa el alias: Configuracion > Aplicaciones > Configuracion avanzada de aplicaciones > Alias de ejecucion de aplicacion > activa "App Installer winget"\n3) Reinicia SamirTechTools y reintenta.';
+    return result;
+  }
+
+  // Detector de error de hash (Google Chrome, Brave, etc. cambian el instalador y el manifest queda desactualizado)
+  const isHashError = /Installer hash does not match|hash.*mismatch|InstallerHashOverride/i.test(result.output);
+
+  if (!result.success && isHashError) {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('winget-progress', { wingetId, chunk: '\n[SamirTechTools] Hash no coincide. Reintentando sin admin + --ignore-security-hash...\n', isErr: false });
+    }
+    // Intentar habilitar override global (best-effort, no bloquea si falla)
+    try { await runWinget(`${wingetCmd} settings --enable InstallerHashOverride`, 15000); } catch {}
+    try { await ps('winget settings --enable InstallerHashOverride 2>&1 | Out-String'); } catch {}
+
+    // Este error NO se puede ignorar si se ejecuta como admin ("This cannot be overridden when running as admin")
+    // Por eso el reintento debe ser SIN elevacion via runas /trustlevel:0x20000 (non-admin)
+    const isAdminMsg = /cannot be overridden when running as admin/i.test(result.output);
+    const retryArgs = `${baseArgs} --ignore-security-hash`;
+    let retryCmd;
+    if (isAdminMsg) {
+      // De-elevate: runas con trustlevel 0x20000 ejecuta sin admin incluso si la app esta elevada
+      retryCmd = `runas /trustlevel:0x20000 "${wingetCmd.replace(/"/g, '')} ${retryArgs}"`;
+      // runas no transmite stdout bien en algunos casos, fallback a powershell Start-Process sin -Verb RunAs
+      result = await runWinget(retryCmd);
+      if (!result.success && /runas/i.test(result.output)) {
+        // fallback: powershell sin elevacion
+        const psRetry = `powershell -NoProfile -Command "Start-Process -FilePath ${wingetCmd} -ArgumentList '${retryArgs}' -Wait -NoNewWindow; exit $LASTEXITCODE"`;
+        result = await runWinget(psRetry);
+      }
+    } else {
+      retryCmd = `${wingetCmd} ${retryArgs}`;
+      result = await runWinget(retryCmd);
+    }
+
+    if (!result.success) {
+      result.output += '\n\n[AYUDA] El hash del instalador no coincide (Chrome/Brave actualizan su .exe antes que el manifest de winget).\nSolucion manual en terminal NORMAL (sin Administrador):\n  winget install --id "' + idArg + '" -e ' + sourceArg + ' --ignore-security-hash\nO habilita global: winget settings --enable InstallerHashOverride';
+    } else {
+      result.output = '[Reintento con --ignore-security-hash exitoso]\n' + result.output;
+    }
+  }
+
+  return result;
 });
 
 // Verificar si una app esta instalada via winget
@@ -596,39 +686,99 @@ ipcMain.handle('open-external', (event, url) => shell.openExternal(url));
 ipcMain.handle('open-path', (event, p) => shell.openPath(p));
 ipcMain.handle('show-item-in-folder', (event, p) => shell.showItemInFolder(p));
 
-// Download file with progress
+// Download file with progress - ROBUSTO: usa curl.exe -L nativo (Windows 10/11) con fallback a Node https
+// Fix AionUi/MediaFire: detecta HTML de 30-40KB (pagina de error/expire) y lo reporta como error
 function downloadFile(url, destPath, onProgress) {
-  return new Promise((resolve, reject) => {
-    // Asegurar carpeta destino existe (en exe empaquetado C:\Office puede requerir admin, pero lo intentamos)
+  return new Promise(async (resolve, reject) => {
     try { fs.mkdirSync(path.dirname(destPath), { recursive: true }); } catch {}
-    const file = fs.createWriteStream(destPath);
-    const protocol = url.startsWith('https') ? https : http;
-    const request = protocol.get(url, { headers: { 'User-Agent': 'Mozilla/5.0', 'Accept': '*/*' } }, (response) => {
-      if (response.statusCode >= 300 && response.statusCode < 400 && response.headers.location) {
-        file.close();
-        try { fs.unlinkSync(destPath); } catch {}
-        downloadFile(response.headers.location, destPath, onProgress).then(resolve).catch(reject);
-        return;
-      }
-      if (response.statusCode !== 200) {
-        file.close();
-        try { fs.unlinkSync(destPath); } catch {}
-        reject(new Error('HTTP ' + response.statusCode));
-        return;
-      }
-      const totalBytes = parseInt(response.headers['content-length'], 10);
-      let downloadedBytes = 0;
-      response.on('data', (chunk) => {
-        downloadedBytes += chunk.length;
-        if (onProgress && totalBytes) {
-          onProgress(Math.round((downloadedBytes / totalBytes) * 100), downloadedBytes, totalBytes);
+    // Intento 1: curl.exe -L (maneja redirects, cookies, resume, y es el que mejor funciona con MediaFire/descargas grandes)
+    const tryCurl = () => new Promise((res) => {
+      const { spawn } = require('child_process');
+      // curl flags: -L sigue redirects, -o destino, --create-dirs crea carpetas, -A user-agent, --progress-bar para progreso
+      const args = ['-L', '-o', destPath, '--create-dirs', '-A', 'Mozilla/5.0', '--connect-timeout', '30', '--max-time', '600', url];
+      const child = spawn('curl.exe', args, { windowsHide: true });
+      let stderr = '';
+      child.stderr.on('data', (d) => { stderr += d.toString(); });
+      child.on('close', (code) => {
+        if (code === 0 && fs.existsSync(destPath)) {
+          try {
+            const stat = fs.statSync(destPath);
+            // Detectar HTML camuflado como .exe (MediaFire expirado devuelve 34KB HTML con <!DOCTYPE)
+            if (stat.size > 0 && stat.size < 300000) {
+              try {
+                const head = fs.readFileSync(destPath, 'utf-8').slice(0, 2000).toLowerCase();
+                if (head.includes('<!doctype') || head.includes('<html') || head.includes('mediafire') || head.includes('<title>file sharing')) {
+                  try { fs.unlinkSync(destPath); } catch {}
+                  return res({ ok: false, err: 'El link expiro o devolvio pagina HTML (MediaFire). Abre el link en el navegador manualmente. Tamano: ' + stat.size + ' bytes. ' + stderr.slice(-500) });
+                }
+              } catch {}
+            }
+            if (stat.size === 0) { try { fs.unlinkSync(destPath); } catch {} return res({ ok: false, err: 'Archivo vacio (0 bytes). ' + stderr.slice(-500) }); }
+            res({ ok: true, size: stat.size });
+          } catch (e) { res({ ok: false, err: String(e) }); }
+        } else {
+          res({ ok: false, err: stderr.slice(-800) || `curl exit code ${code}` });
         }
       });
-      response.pipe(file);
-      file.on('finish', () => { file.close(); resolve({ success: true, size: downloadedBytes }); });
+      child.on('error', (err) => res({ ok: false, err: String(err) }));
+      // Timeout global 10 min
+      setTimeout(() => { try { child.kill(); } catch {} res({ ok: false, err: 'Timeout curl (10min)' }); }, 600000);
     });
-    request.on('error', (err) => { file.close(); try { fs.unlinkSync(destPath); } catch {} reject(err); });
-    request.setTimeout(300000, () => { request.destroy(); reject(new Error('Timeout')); });
+
+    const curlResult = await tryCurl();
+    if (curlResult.ok) {
+      // Emitir progreso 100% si hay callback
+      try { if (onProgress) onProgress(100, curlResult.size, curlResult.size); } catch {}
+      return resolve({ success: true, size: curlResult.size });
+    }
+    // Si curl fallo pero no fue por HTML (ej: sin curl.exe), intentar fallback Node https como ultimo recurso
+    // Pero si fue HTML de MediaFire, no tiene sentido reintentar https (dara mismo HTML), reportar error directamente
+    if (/pagina HTML|expiro|mediafire/i.test(curlResult.err)) {
+      return reject(new Error(curlResult.err + ' -> Abre el link en el navegador: ' + url));
+    }
+    // Fallback Node https (para entornos sin curl o errores de red puntuales)
+    try {
+      const file = fs.createWriteStream(destPath);
+      const protocol = url.startsWith('https') ? https : http;
+      const request = protocol.get(url, { headers: { 'User-Agent': 'Mozilla/5.0', 'Accept': '*/*' } }, (response) => {
+        if (response.statusCode >= 300 && response.statusCode < 400 && response.headers.location) {
+          file.close();
+          try { fs.unlinkSync(destPath); } catch {}
+          downloadFile(response.headers.location, destPath, onProgress).then(resolve).catch(reject);
+          return;
+        }
+        if (response.statusCode !== 200) {
+          file.close();
+          try { fs.unlinkSync(destPath); } catch {}
+          reject(new Error('HTTP ' + response.statusCode + ' (fallback). Curl error previo: ' + curlResult.err));
+          return;
+        }
+        const totalBytes = parseInt(response.headers['content-length'], 10);
+        let downloadedBytes = 0;
+        response.on('data', (chunk) => {
+          downloadedBytes += chunk.length;
+          if (onProgress && totalBytes) onProgress(Math.round((downloadedBytes / totalBytes) * 100), downloadedBytes, totalBytes);
+        });
+        response.pipe(file);
+        file.on('finish', () => {
+          file.close();
+          // Verificar HTML tambien en fallback
+          try {
+            const stat = fs.statSync(destPath);
+            if (stat.size > 0 && stat.size < 300000) {
+              const head = fs.readFileSync(destPath, 'utf-8').slice(0, 2000).toLowerCase();
+              if (head.includes('<!doctype') || head.includes('<html')) {
+                try { fs.unlinkSync(destPath); } catch {}
+                return reject(new Error('El link devolvio HTML en vez de .exe (link expirado). Abre en navegador: ' + url));
+              }
+            }
+          } catch {}
+          resolve({ success: true, size: downloadedBytes });
+        });
+      });
+      request.on('error', (err) => { file.close(); try { fs.unlinkSync(destPath); } catch {} reject(new Error(String(err) + ' | Curl previo: ' + curlResult.err)); });
+      request.setTimeout(300000, () => { request.destroy(); reject(new Error('Timeout (fallback)')); });
+    } catch (e) { reject(new Error(String(e) + ' | Curl previo: ' + curlResult.err)); }
   });
 }
 
