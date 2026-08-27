@@ -99,6 +99,8 @@ Y viceversa: cuando termines en casa haces `add + commit + push`, y al llegar al
 
 ## 3. Errores comunes
 
+**`concurrently no se reconoce como comando`:** No hiciste `npm install` después de clonar. Solución: `cd SamirTechTools` y luego `npm install`, espera a que termine y vuelve a intentar `npm run electron:dev`.
+
 **`git pull` da conflicto:** Significa que editaste el mismo archivo en ambas PCs sin hacer pull/push. Solución: haz `git pull` siempre antes de empezar a editar.
 
 **`npm run electron:dev` muestra `ERR_FILE_NOT_FOUND dist/index.html`:** Te falta el flag `--dev`. Verifica en `package.json` que el script sea: `electron . --dev`
