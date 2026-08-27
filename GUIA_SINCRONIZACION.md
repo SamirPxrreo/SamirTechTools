@@ -91,9 +91,9 @@ Y viceversa: cuando termines en casa haces `add + commit + push`, y al llegar al
 | Subir cambios a GitHub | `git push` |
 | Bajar cambios de la otra PC | `git pull` |
 | Ver historial | `git log --oneline` |
-| **"Sube a github" = SUBIR TODO LITERALMENTE** | `git add/commit/push` + `npm run electron:build` (admin) + `gh release upload v1.0.1 release\*.exe --clobber` |
+| **"Sube a github" = SUBIR SOLO LO NECESARIO** | `git add/commit/push` de lo cambiado + si cambió `src/`/`electron/`/`resources/` → `npm run electron:build` (admin) + `gh release upload v1.0.1 release\*.exe --clobber` |
 
-> **⚠️ "Sube a github" NUNCA es solo `git push`.** Es publicar TODO: código + build de instalador/portable + subir .exe a la Release de GitHub. Ver `docs/CONTEXTO.md` > Build y release.
+> **⚠️ "Sube a github" incluye build solo si cambió código del exe.** Si solo son `*.md`/`docs`, basta con `git push`. Ver `docs/CONTEXTO.md` > Build y release.
 
 ---
 

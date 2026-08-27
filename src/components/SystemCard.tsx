@@ -15,8 +15,8 @@ export function SystemCard({ title, value, subtitle, icon, color = 'text-slate-9
         {icon && <span className="text-slate-500 shrink-0">{icon}</span>}
         <span className="text-[10px] font-semibold tracking-widest text-slate-400 uppercase truncate">{title}</span>
       </div>
-      <div className="text-[13px] font-semibold text-slate-900 break-words leading-tight" title={value}>{value}</div>
-      {subtitle && <div className="text-[11px] text-slate-500 mt-0.5">{subtitle}</div>}
+      <div className="text-[13px] font-semibold text-slate-900 break-words leading-tight select-text" title={value}>{value}</div>
+      {subtitle && <div className="text-[11px] text-slate-500 mt-0.5 select-text">{subtitle}</div>}
     </div>
   );
 }
