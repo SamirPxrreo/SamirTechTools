@@ -9,10 +9,12 @@ const fs = require('fs');
 let mainWindow;
 
 function createWindow() {
-  // No seteamos icon explicitamente - Windows usará el icono del exe (public/icon.png circular) para ventana/taskbar
-  // Si se necesita override, descomentar:
-  // let iconPath = path.join(__dirname, '../public/icon.png');
-  // if (app.isPackaged) { const resPng = path.join(process.resourcesPath, 'icon.png'); if (fs.existsSync(resPng)) iconPath = resPng; }
+  // Icono para la ventana/taskbar en runtime. En empaquetado viene de extraResources (icon.png)
+  let iconPath = path.join(__dirname, '../public/icon.png');
+  if (app.isPackaged) {
+    const resPng = path.join(process.resourcesPath, 'icon.png');
+    if (fs.existsSync(resPng)) iconPath = resPng;
+  }
   mainWindow = new BrowserWindow({
     width: 1400,
     height: 900,
@@ -20,6 +22,7 @@ function createWindow() {
     minHeight: 700,
     frame: false,
     titleBarStyle: 'hidden',
+    icon: iconPath,
     webPreferences: {
       preload: path.join(__dirname, 'preload.cjs'),
       contextIsolation: true,
