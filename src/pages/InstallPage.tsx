@@ -85,17 +85,19 @@ export function InstallPage() {
     const st = statuses[app.wingetId] || 'idle';
     const isSel = selected.has(app.wingetId);
     const dom = domainOf(app.link);
+    const clickable = st === 'idle' && !batchBusy;
     return (
       <div
         key={app.wingetId}
         title={app.description || app.wingetId}
+        onClick={() => clickable && setConfirmApp(app)}
         className={`bg-white border rounded-md px-3 py-2.5 flex items-center gap-2 text-left transition-all ${
-          isSel ? 'border-primary-600 ring-1 ring-primary-500' : 'border-neutral-300 hover:border-primary-500 hover:shadow-sm'
-        }`}
+          clickable ? 'cursor-pointer hover:border-primary-500 hover:shadow-sm' : st === 'installing' ? 'cursor-wait' : ''
+        } ${isSel ? 'border-primary-600 ring-1 ring-primary-500' : 'border-neutral-300'}`}
       >
         {/* Checkbox de seleccion */}
         <button
-          onClick={() => st === 'idle' && toggleSelect(app.wingetId)}
+          onClick={(e) => { e.stopPropagation(); if (st === 'idle') toggleSelect(app.wingetId); }}
           className="flex-shrink-0 text-neutral-400 hover:text-primary-600 disabled:opacity-30"
           disabled={st !== 'idle'}
           title={isSel ? 'Quitar de la selección' : 'Seleccionar'}
@@ -107,30 +109,26 @@ export function InstallPage() {
           <img
             src={`https://icons.duckduckgo.com/ip3/${dom}.ico`}
             alt=""
-            className="w-[18px] h-[18px] flex-shrink-0 rounded-sm"
+            className="w-[18px] h-[18px] flex-shrink-0 rounded-sm pointer-events-none"
             onError={(e) => { (e.target as HTMLImageElement).style.visibility = 'hidden'; }}
           />
         ) : (
           <span className="w-[18px] flex-shrink-0" />
         )}
 
-        <button
-          onClick={() => st === 'idle' && setConfirmApp(app)}
-          disabled={st === 'installing' || batchBusy}
-          className="flex-1 min-w-0 text-left disabled:cursor-not-allowed"
-        >
+        <div className="flex-1 min-w-0 text-left pointer-events-none">
           <span className="block text-xs font-medium text-neutral-800 truncate">{app.name}</span>
           {st === 'done' && <span className="block text-[9px] text-green-600">Instalado</span>}
           {st === 'error' && <span className="block text-[9px] text-red-600">Error - clic para reintentar</span>}
           {st === 'installing' && <span className="block text-[9px] text-blue-600">Instalando...</span>}
-        </button>
+        </div>
 
         {st === 'idle' && !isSel && (
-          <Download size={14} className="flex-shrink-0 text-neutral-300 group-hover:text-primary-600" />
+          <Download size={14} className="flex-shrink-0 text-neutral-400 pointer-events-none" />
         )}
-        {st === 'installing' && <Loader2 size={14} className="flex-shrink-0 text-blue-600 animate-spin" />}
-        {st === 'done' && <CheckCircle2 size={14} className="flex-shrink-0 text-green-600" />}
-        {st === 'error' && <XCircle size={14} className="flex-shrink-0 text-red-600" />}
+        {st === 'installing' && <Loader2 size={14} className="flex-shrink-0 text-blue-600 animate-spin pointer-events-none" />}
+        {st === 'done' && <CheckCircle2 size={14} className="flex-shrink-0 text-green-600 pointer-events-none" />}
+        {st === 'error' && <XCircle size={14} className="flex-shrink-0 text-red-600 pointer-events-none" />}
       </div>
     );
   };

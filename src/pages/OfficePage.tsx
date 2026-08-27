@@ -123,15 +123,16 @@ export function OfficePage() {
           log('Office', 'Descargando', `${o.name} desde c2rsetup.officeapps.live.com`, 'info');
           const dl = await window.electronAPI.downloadFile(o.url, filePath);
           if (!dl.success) {
-            log('Office', 'Error', `No se pudo descargar: ${dl.output}`, 'error');
+            log('Office', 'Error', `No se pudo descargar: ${dl.output}. Suele ser bloqueo de red/antivirus. Prueba descargar manual: ${o.url}`, 'error');
             setLoading(false); return;
           }
-          log('Office', 'Descargado', `${o.fileName} (${formatBytes(dl.size || 0)})`, 'success');
-          log('Office', 'Instalando', `Ejecutando ${o.fileName}`, 'info');
+          log('Office', 'Descargado', `${o.fileName} (${formatBytes(dl.size || 0)}) en ${filePath}`, 'success');
+          log('Office', 'Instalando', `Ejecutando ${o.fileName} como administrador...`, 'info');
           const run = await window.electronAPI.runCommand(
             `powershell -NoProfile -ExecutionPolicy Bypass -Command "Start-Process -FilePath '${filePath}' -Verb RunAs"`
           );
-          log('Office', 'Instalación', run.success ? 'Instalador abierto. Sigue las instrucciones en pantalla.' : `Abre manualmente: ${filePath}`, run.success ? 'success' : 'warning');
+          if (run.success) log('Office', 'Instalación', 'Instalador abierto. Sigue las instrucciones en pantalla.', 'success');
+          else { log('Office', 'Instalación', `No se pudo auto-ejecutar. Abre manualmente: ${filePath}`, 'warning'); window.electronAPI.showItemInFolder(filePath); }
         } catch (err) { log('Office', 'Error', String(err), 'error'); }
         setLoading(false); setDownloadStatus('');
       }

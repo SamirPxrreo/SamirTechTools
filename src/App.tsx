@@ -75,6 +75,22 @@ function AppContent() {
     loadSystemInfo();
   }, []);
 
+  // Polling en vivo para CPU/RAM cada 2s (solo en dashboard para no saturar)
+  useEffect(() => {
+    if (currentPage !== 'dashboard') return;
+    const iv = setInterval(async () => {
+      try {
+        const [cpu, ram] = await Promise.all([
+          window.electronAPI.getCpuInfo(),
+          window.electronAPI.getRamInfo(),
+        ]);
+        setCpuInfo(cpu);
+        setRamInfo(ram);
+      } catch {}
+    }, 2000);
+    return () => clearInterval(iv);
+  }, [currentPage]);
+
   const renderPage = () => {
     switch (currentPage) {
       case 'dashboard':

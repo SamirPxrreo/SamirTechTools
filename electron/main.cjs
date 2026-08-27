@@ -159,19 +159,30 @@ ipcMain.handle('get-gpu-info', async () => {
           const regBase = 'HKLM:\\SYSTEM\\CurrentControlSet\\Control\\Class\\{4d36e968-e325-11ce-bfc1-08002be10318}';
           const keys = await ps(`Get-ChildItem '${regBase}' -ErrorAction SilentlyContinue | Select-Object -ExpandProperty PSChildName`);
           const nameLower = ((p[0] || '')).toLowerCase();
+          let matched = false;
           for (const key of keys.output.trim().split('\n')) {
             const k = key.trim();
             if (!/^\d{4}$/.test(k)) continue;
             const desc = await ps(`(Get-ItemProperty '${regBase}\\${k}' -ErrorAction SilentlyContinue).DriverDesc`);
             const descTrim = desc.output.trim();
-            if (descTrim && (nameLower.includes(descTrim.toLowerCase()) || descTrim.toLowerCase().includes(nameLower.split(' (')[0]))) {
+            const isMatch = descTrim && (nameLower.includes(descTrim.toLowerCase()) || descTrim.toLowerCase().includes(nameLower.split(' (')[0].toLowerCase()) || nameLower.split(' ').some(w => w.length>3 && descTrim.toLowerCase().includes(w)));
+            if (isMatch) {
+              const qw = await ps(`(Get-ItemProperty '${regBase}\\${k}' -Name 'HardwareInformation.qwMemorySize' -ErrorAction SilentlyContinue).'HardwareInformation.qwMemorySize'`);
               const q = await ps(`(Get-ItemProperty '${regBase}\\${k}' -Name 'HardwareInformation.qpmemorySize' -ErrorAction SilentlyContinue).'HardwareInformation.qpmemorySize'`);
               const d = await ps(`(Get-ItemProperty '${regBase}\\${k}' -Name 'HardwareInformation.memorySize' -ErrorAction SilentlyContinue).'HardwareInformation.memorySize'`);
+              const qwv = parseInt(qw.output.trim()) || 0;
               const qv = parseInt(q.output.trim()) || 0;
               const dv = parseInt(d.output.trim()) || 0;
-              if (qv > 0) { vram = qv; break; }
-              if (dv > 0) { vram = dv; break; }
+              if (qwv > 0) { vram = qwv; matched=true; break; }
+              if (qv > 0) { vram = qv; matched=true; break; }
+              if (dv > 0) { vram = dv; matched=true; break; }
             }
+          }
+          // Fallback: si no matcheo, lee directo de 0000 (Intel Arc siempre ahi)
+          if (!matched) {
+            const qw = await ps(`(Get-ItemProperty '${regBase}\\0000' -Name 'HardwareInformation.qwMemorySize' -ErrorAction SilentlyContinue).'HardwareInformation.qwMemorySize'`);
+            const qwv = parseInt(qw.output.trim()) || 0;
+            if (qwv > 0 && qwv > vram) vram = qwv;
           }
         } catch {}
         gpus.push({ name: (p[0] || 'Unknown').trim(), vram, driverVersion: (p[2] || 'Unknown').trim(), driverDate: (p[3] || 'Unknown').trim() });
@@ -542,14 +553,26 @@ ipcMain.handle('execute-tool', async (event, { tool, args }) => {
 ipcMain.handle('run-command', async (event, command) => await runCommand(command));
 
 // Instalar app via winget (timeout largo, 15 min) - usa --source winget para evitar error de certificado msstore (0x8a15005e en VMs)
+// En el exe empaquetado el PATH puede no incluir winget, asi que lo resolvemos con where.exe
 ipcMain.handle('winget-install', async (event, wingetId) => {
+  let wingetCmd = 'winget';
+  try {
+    const r = await ps('(Get-Command winget -ErrorAction SilentlyContinue).Source');
+    const p = r.output.trim();
+    if (p && fs.existsSync(p)) wingetCmd = `"${p}"`;
+  } catch {}
   return new Promise((resolve) => {
-    exec(`winget install --id "${wingetId}" -e --source winget --accept-source-agreements --accept-package-agreements --silent --disable-interactivity`,
+    exec(`${wingetCmd} install --id "${wingetId}" -e --source winget --accept-source-agreements --accept-package-agreements --silent --disable-interactivity`,
       { encoding: 'utf-8', maxBuffer: 1024 * 1024 * 10, timeout: 900000 },
       (error, stdout, stderr) => {
-        if (error && error.killed) resolve({ success: false, output: 'Timeout: la instalacion tardo demasiado', code: -1 });
-        else if (error && error.code !== 0) resolve({ success: false, output: (stdout || '') + (stderr || error.message), code: error.code });
-        else resolve({ success: true, output: stdout, code: 0 });
+        const out = (stdout || '') + (stderr || '');
+        if (error && error.killed) resolve({ success: false, output: 'Timeout: la instalacion tardo demasiado\n' + out, code: -1 });
+        // winget a veces retorna 0x8a15005e (cert msstore) aunque con --source winget no deberia; si hay salida de "Instalado" lo marcamos ok
+        else if (error && error.code !== 0) {
+          if (/instalado|successfully installed/i.test(out)) resolve({ success: true, output: out, code: 0 });
+          else resolve({ success: false, output: out || error.message, code: error.code });
+        }
+        else resolve({ success: true, output: out, code: 0 });
       });
   });
 });
@@ -571,18 +594,20 @@ ipcMain.handle('show-item-in-folder', (event, p) => shell.showItemInFolder(p));
 // Download file with progress
 function downloadFile(url, destPath, onProgress) {
   return new Promise((resolve, reject) => {
+    // Asegurar carpeta destino existe (en exe empaquetado C:\Office puede requerir admin, pero lo intentamos)
+    try { fs.mkdirSync(path.dirname(destPath), { recursive: true }); } catch {}
     const file = fs.createWriteStream(destPath);
     const protocol = url.startsWith('https') ? https : http;
-    const request = protocol.get(url, { headers: { 'User-Agent': 'Mozilla/5.0' } }, (response) => {
+    const request = protocol.get(url, { headers: { 'User-Agent': 'Mozilla/5.0', 'Accept': '*/*' } }, (response) => {
       if (response.statusCode >= 300 && response.statusCode < 400 && response.headers.location) {
         file.close();
-        fs.unlinkSync(destPath);
+        try { fs.unlinkSync(destPath); } catch {}
         downloadFile(response.headers.location, destPath, onProgress).then(resolve).catch(reject);
         return;
       }
       if (response.statusCode !== 200) {
         file.close();
-        fs.unlinkSync(destPath);
+        try { fs.unlinkSync(destPath); } catch {}
         reject(new Error('HTTP ' + response.statusCode));
         return;
       }
@@ -597,7 +622,7 @@ function downloadFile(url, destPath, onProgress) {
       response.pipe(file);
       file.on('finish', () => { file.close(); resolve({ success: true, size: downloadedBytes }); });
     });
-    request.on('error', (err) => { file.close(); fs.unlinkSync(destPath); reject(err); });
+    request.on('error', (err) => { file.close(); try { fs.unlinkSync(destPath); } catch {} reject(err); });
     request.setTimeout(300000, () => { request.destroy(); reject(new Error('Timeout')); });
   });
 }
