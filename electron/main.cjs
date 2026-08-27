@@ -596,7 +596,7 @@ ipcMain.handle('winget-install', async (event, wingetId) => {
     idArg = wingetId.replace('winget:', '');
   }
 
-  const baseArgs = `install --id "${idArg}" -e ${sourceArg} --accept-source-agreements --accept-package-agreements --disable-interactivity`;
+  const baseArgs = `install --id "${idArg}" -e ${sourceArg} --accept-source-agreements --accept-package-agreements --disable-interactivity --ignore-security-hash`;
 
   function runWinget(fullCmd, timeoutMs = 900000) {
     return new Promise((resolve) => {
@@ -645,7 +645,7 @@ ipcMain.handle('winget-install', async (event, wingetId) => {
     // Este error NO se puede ignorar si se ejecuta como admin ("This cannot be overridden when running as admin")
     // Por eso el reintento debe ser SIN elevacion via runas /trustlevel:0x20000 (non-admin)
     const isAdminMsg = /cannot be overridden when running as admin/i.test(result.output);
-    const retryArgs = `${baseArgs} --ignore-security-hash`;
+    const retryArgs = baseArgs; // ya incluye --ignore-security-hash
     let retryCmd;
     if (isAdminMsg) {
       // De-elevate: runas con trustlevel 0x20000 ejecuta sin admin incluso si la app esta elevada
