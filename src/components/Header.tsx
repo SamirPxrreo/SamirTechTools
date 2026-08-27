@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Sun, Moon, ShieldCheck, ShieldAlert } from 'lucide-react';
+import appIcon from '/icon.png';
 
 interface HeaderProps {
   computerName: string;
@@ -23,7 +24,7 @@ export function Header({ computerName, username, isAdmin, version }: HeaderProps
     <header className="h-[52px] shrink-0 z-20 flex items-center justify-between px-4 gap-4 bg-white/80 backdrop-blur-xl border-b border-slate-200 sticky top-0">
       {/* Brand */}
       <div className="flex items-center gap-3 min-w-0">
-        <img src="/icon.png" alt="ST" className="w-8 h-8 rounded-full object-cover shrink-0 shadow-sm border border-slate-200 bg-white" onError={(e) => { (e.target as HTMLImageElement).src='/logo.jpg'; }} />
+        <img src={appIcon} alt="ST" className="w-8 h-8 rounded-full object-cover shrink-0 shadow-sm border border-slate-200 bg-white" />
         <div className="min-w-0 leading-none">
           <p className="text-[13px] font-bold tracking-tight text-slate-900">
             SamirTech<span className="text-indigo-600">Tools</span>
