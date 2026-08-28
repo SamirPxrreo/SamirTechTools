@@ -9,7 +9,7 @@ function domainOf(link?: string): string {
 }
 
 export function InstallPage() {
-  const { statuses, outputs, liveOutputs, selected, batchBusy, installingCount, activeLiveId, toggleSelect, clearSelection, installApp, installBatch, cancelApp, cancelBatch, dismissOutput, clearAllOutputs } = useInstall();
+  const { statuses, outputs, liveOutputs, progress, selected, batchBusy, installingCount, activeLiveId, toggleSelect, clearSelection, installApp, installBatch, cancelApp, cancelBatch, dismissOutput, clearAllOutputs } = useInstall();
   const [category, setCategory] = useState<string>('Todas');
   const [search, setSearch] = useState('');
   const [confirmApp, setConfirmApp] = useState<AppEntry | null>(null);
@@ -148,6 +148,32 @@ export function InstallPage() {
           {showLive && activeLiveId && liveOutputs[activeLiveId] && (
             <div className="px-3 py-2 border-b border-slate-100">
               <p className="text-[11px] font-medium text-slate-600 mb-1 flex items-center gap-2"><Terminal size={12} />{activeLiveId} {statuses[activeLiveId] === 'installing' && <Loader2 size={10} className="animate-spin text-blue-600" />}</p>
+              {(() => {
+                const pr = progress[activeLiveId];
+                if (!pr) return null;
+                const phaseText: Record<string, string> = {
+                  download: 'Descargando...',
+                  verify: 'Verificando hash...',
+                  install: 'Instalando...',
+                  done: 'Completado',
+                };
+                return (
+                  <div className="mb-2">
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-[11px] font-medium text-blue-700">{phaseText[pr.phase || 'download'] || 'Trabajando...'}</span>
+                      {typeof pr.percent === 'number' && (
+                        <span className="text-[11px] font-semibold text-slate-700 tabular-nums">{pr.percent}%</span>
+                      )}
+                    </div>
+                    <div className="w-full bg-slate-200 rounded-full h-2 overflow-hidden">
+                      <div
+                        className={`h-2 rounded-full transition-all duration-300 ${pr.phase === 'done' ? 'bg-green-500' : 'bg-blue-500'}`}
+                        style={{ width: `${pr.percent ?? 0}%` }}
+                      />
+                    </div>
+                  </div>
+                );
+              })()}
               <pre ref={liveRef} className="bg-slate-900 text-emerald-400 text-[11px] font-mono p-2.5 rounded-lg max-h-32 overflow-auto whitespace-pre-wrap leading-relaxed">{liveOutputs[activeLiveId].slice(-4000)}</pre>
             </div>
           )}

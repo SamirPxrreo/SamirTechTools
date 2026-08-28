@@ -36,8 +36,22 @@ contextBridge.exposeInMainWorld('electronAPI', {
   wingetInstall: (wingetId) => ipcRenderer.invoke('winget-install', wingetId),
   wingetList: () => ipcRenderer.invoke('winget-list'),
   executeTool: (tool, args) => ipcRenderer.invoke('execute-tool', { tool, args }),
-  onWingetProgress: (cb) => ipcRenderer.on('winget-progress', (e, data) => cb(data)),
-  onCommandProgress: (cb) => ipcRenderer.on('command-progress', (e, data) => cb(data)),
+  onWingetProgress: (cb) => {
+    const l = (e, data) => cb(data);
+    ipcRenderer.on('winget-progress', l);
+    return () => ipcRenderer.removeListener('winget-progress', l);
+  },
+  onWingetProgressPct: (cb) => {
+    const l = (e, data) => cb(data);
+    ipcRenderer.on('winget-progress-pct', l);
+    return () => ipcRenderer.removeListener('winget-progress-pct', l);
+  },
+  onCommandProgress: (cb) => {
+    const l = (e, data) => cb(data);
+    ipcRenderer.on('command-progress', l);
+    return () => ipcRenderer.removeListener('command-progress', l);
+  },
+  installOpencode: () => ipcRenderer.invoke('install-opencode'),
 
   // Download
   downloadFile: (url, destPath) => ipcRenderer.invoke('download-file', { url, destPath }),
@@ -45,7 +59,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
   appendLog: (entry) => ipcRenderer.invoke('append-log', entry),
   defenderTool: (action) => ipcRenderer.invoke('defender-tool', action),
   clearRam: () => ipcRenderer.invoke('clear-ram'),
-  onDownloadProgress: (callback) => ipcRenderer.on('download-progress', (event, data) => callback(data)),
+  onDownloadProgress: (callback) => {
+    const l = (event, data) => callback(data);
+    ipcRenderer.on('download-progress', l);
+    return () => ipcRenderer.removeListener('download-progress', l);
+  },
 
   // ISO
   mountIso: (isoPath) => ipcRenderer.invoke('mount-iso', isoPath),

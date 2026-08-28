@@ -23,9 +23,10 @@ export function OfficePage() {
 
   useEffect(() => {
     if (window.electronAPI?.onDownloadProgress) {
-      window.electronAPI.onDownloadProgress((data: DownloadProgress) => {
+      const off = window.electronAPI.onDownloadProgress((data: DownloadProgress) => {
         setProgress(data);
       });
+      return off;
     }
   }, []);
 

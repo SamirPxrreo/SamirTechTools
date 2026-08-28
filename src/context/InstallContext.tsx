@@ -4,10 +4,16 @@ import { useLogs } from './LogContext';
 
 type Status = 'idle' | 'installing' | 'done' | 'error';
 
+interface InstallConfigItem {
+  percent?: number;
+  phase?: string;
+}
+
 interface InstallState {
   statuses: Record<string, Status>;
   outputs: Record<string, string>;
   liveOutputs: Record<string, string>;
+  progress: Record<string, InstallConfigItem>;
   selected: Set<string>;
   batchBusy: boolean;
   installingCount: number;
@@ -29,15 +35,31 @@ export function InstallProvider({ children }: { children: React.ReactNode }) {
   const [statuses, setStatuses] = useState<Record<string, Status>>({});
   const [outputs, setOutputs] = useState<Record<string, string>>({});
   const [liveOutputs, setLiveOutputs] = useState<Record<string, string>>({});
+  const [progress, setProgress] = useState<Record<string, InstallConfigItem>>({});
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [batchBusy, setBatchBusy] = useState(false);
   const batchCancelRef = useRef(false);
 
   useEffect(() => {
     if (!window.electronAPI?.onWingetProgress) return;
-    window.electronAPI.onWingetProgress(({ wingetId, chunk }) => {
+    const off = window.electronAPI.onWingetProgress(({ wingetId, chunk }) => {
       setLiveOutputs(prev => ({ ...prev, [wingetId]: (prev[wingetId] || '') + chunk }));
     });
+    return off;
+  }, []);
+
+  useEffect(() => {
+    if (!window.electronAPI?.onWingetProgressPct) return;
+    const off = window.electronAPI.onWingetProgressPct(({ wingetId, percent, phase }) => {
+      setProgress(prev => {
+        const cur = prev[wingetId] || {};
+        const next = { ...cur };
+        if (typeof percent === 'number') next.percent = percent;
+        if (phase) next.phase = phase;
+        return { ...prev, [wingetId]: next };
+      });
+    });
+    return off;
   }, []);
 
   const activeLiveId = React.useMemo(() => {
@@ -56,9 +78,10 @@ export function InstallProvider({ children }: { children: React.ReactNode }) {
   const dismissOutput = useCallback((id: string) => {
     setOutputs(o => { const n = { ...o }; delete n[id]; return n; });
     setLiveOutputs(o => { const n = { ...o }; delete n[id]; return n; });
+    setProgress(o => { const n = { ...o }; delete n[id]; return n; });
     setStatuses(s => { const n = { ...s }; if (n[id] === 'done' || n[id] === 'error') delete n[id]; return n; });
   }, []);
-  const clearAllOutputs = useCallback(() => { setOutputs({}); setLiveOutputs({}); }, []);
+  const clearAllOutputs = useCallback(() => { setOutputs({}); setLiveOutputs({}); setProgress({}); }, []);
 
   const installApp = useCallback(async (wingetId: string, name: string) => {
     setStatuses(s => ({ ...s, [wingetId]: 'installing' }));
@@ -114,7 +137,7 @@ export function InstallProvider({ children }: { children: React.ReactNode }) {
   }, [statuses, cancelApp]);
 
   return (
-    <Ctx.Provider value={{ statuses, outputs, liveOutputs, selected, batchBusy, installingCount, activeLiveId, toggleSelect, clearSelection, installApp, installBatch, cancelApp, cancelBatch, dismissOutput, clearAllOutputs }}>
+    <Ctx.Provider value={{ statuses, outputs, liveOutputs, progress, selected, batchBusy, installingCount, activeLiveId, toggleSelect, clearSelection, installApp, installBatch, cancelApp, cancelBatch, dismissOutput, clearAllOutputs }}>
       {children}
     </Ctx.Provider>
   );

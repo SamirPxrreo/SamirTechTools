@@ -3,7 +3,20 @@ import { AppWindow, Download, ExternalLink, Loader, FileText, StickyNote, Box, G
 import { ToolCard, ConsoleOutput, ConfirmModal } from '../components';
 import { useLogs } from '../context/LogContext';
 
-const extraApps = [
+interface ExtraApp {
+  id: string;
+  name: string;
+  description: string;
+  type?: 'command' | 'opencode' | 'download';
+  commands?: string[];
+  url?: string;
+  fileName?: string;
+  website: string;
+  accentColor: string;
+  icon: React.ComponentType<{ size?: number | string }>;
+}
+
+const extraApps: ExtraApp[] = [
   {
     id: 'chrome',
     name: 'Google Chrome',
@@ -17,15 +30,21 @@ const extraApps = [
   {
     id: 'opencode',
     name: 'OpenCode (CLI)',
-    description: 'Asistente de IA en terminal. Instala globalmente vía npm: Set-ExecutionPolicy Bypass -Scope Process + npm i -g opencode-ai. Luego ejecuta "opencode" en cualquier carpeta.',
-    type: 'command',
-    commands: [
-      'Set-ExecutionPolicy Bypass -Scope Process',
-      'npm i -g opencode-ai',
-    ],
+    description: 'Asistente de IA en terminal. Instala automáticamente: verifica Node.js (lo instala vía winget si falta), configura la ejecución de scripts y luego npm i -g opencode-ai. Luego ejecuta "opencode" en cualquier carpeta.',
+    type: 'opencode',
     website: 'https://opencode.ai',
     accentColor: 'green',
     icon: Terminal,
+  },
+  {
+    id: 'winrar',
+    name: 'WinRAR',
+    description: 'Compresor de archivos clásico. Se instala vía WinGet de forma silenciosa (acepta todos los términos automáticamente, sin ventanas emergentes).',
+    url: 'winget:RARLAB.WinRAR',
+    fileName: '',
+    website: 'https://www.win-rar.com/',
+    accentColor: 'orange',
+    icon: Box,
   },
   {
     id: 'jopdf',
@@ -71,21 +90,29 @@ export function ExtraAppsPage() {
     const handler = (data: { chunk: string; isErr?: boolean }) => {
       setOutput(prev => prev + data.chunk);
     };
-    window.electronAPI.onCommandProgress(handler);
+    const off = window.electronAPI.onCommandProgress(handler);
+    return off;
   }, []);
 
   const doDownload = (app: typeof extraApps[0]) => {
     setConfirm({
       open: true,
       title: `Descargar ${app.name}`,
-      message: app.type === 'command'
-        ? `Se ejecutará en terminal:\n${app.commands!.join('\n')}\n\n¿Continuar?`
+      message: app.type === 'command' || app.type === 'opencode'
+        ? app.type === 'opencode'
+          ? `Se verificará/instalará Node.js si es necesario (vía winget) y luego se ejecutará en terminal:\nSet-ExecutionPolicy Bypass -Scope Process\nnpm i -g opencode-ai\n\n¿Continuar?`
+          : `Se ejecutará en terminal:\n${app.commands!.join('\n')}\n\n¿Continuar?`
         : (app.url ?? '').startsWith('winget:') ? `Se instalará vía WinGet: ${(app.url ?? '').replace('winget:', '')}` : `Se descargará desde: ${app.url}\n\n¿Continuar?`,
       onConfirm: async () => {
         setConfirm({ ...confirm, open: false });
         setLoading(true); setOutput(''); setActive(app.name);
         try {
-          if (app.type === 'command' && app.commands) {
+          if (app.type === 'opencode') {
+            addLog('Extra Apps', app.name, 'Instalando OpenCode CLI (con verificación de Node.js)', 'info');
+            const r = await window.electronAPI.installOpencode();
+            setOutput(prev => prev + (r.output || ''));
+            addLog('Extra Apps', app.name, r.success ? 'OpenCode instalado' : 'Error', r.success ? 'success' : 'error');
+          } else if (app.type === 'command' && app.commands) {
             addLog('Extra Apps', app.name, `comandos: ${app.commands.join(' && ')}`, 'info');
             const r = await window.electronAPI.runCommands(app.commands);
             setOutput(prev => prev + (r.output || ''));
@@ -154,7 +181,7 @@ export function ExtraAppsPage() {
               status="info"
               statusText="Disponible"
               accentColor={app.accentColor}
-              primaryAction={app.type === 'command' ? 'Instalar' : 'Descargar'}
+              primaryAction={app.type === 'command' || app.type === 'opencode' ? 'Instalar' : 'Descargar'}
               primaryOnClick={() => doDownload(app)}
               secondaryAction="Sitio oficial"
               secondaryOnClick={() => window.electronAPI.openExternal(app.website)}

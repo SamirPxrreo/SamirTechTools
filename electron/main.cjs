@@ -596,6 +596,86 @@ ipcMain.handle('run-commands', async (event, commands) => {
   return { success: true, output: fullOut };
 });
 
+// Instalar OpenCode CLI (npm global) con verificacion/instalacion automatica de Node.js
+ipcMain.handle('install-opencode', async () => {
+  const { spawn } = require('child_process');
+  const script = `
+$ErrorActionPreference = 'Continue'
+
+Write-Host ''
+Write-Host '=== PASO 1/3: Verificando Node.js ==='
+$hasNode = [bool](Get-Command node -ErrorAction SilentlyContinue)
+if ($hasNode) {
+  Write-Host ('Node.js detectado: ' + (node --version))
+} else {
+  Write-Host 'Node.js NO esta instalado.'
+  if (-not (Get-Command winget -ErrorAction SilentlyContinue)) {
+    Write-Host '[ERROR] winget tampoco esta disponible. Instala "App Installer" (winget) desde Microsoft Store primero:'
+    Write-Host '  ms-windows-store://pdp/?ProductId=9NBLGGH4NNS1'
+    Start-Process 'ms-windows-store://pdp/?ProductId=9NBLGGH4NNS1'
+    exit 1
+  }
+  Write-Host 'Instalando Node.js LTS via winget (OpenJS.Node.js.LTS)...'
+  winget install --id OpenJS.Node.js.LTS -e --source winget --silent --accept-package-agreements --accept-source-agreements --disable-interactivity
+  Write-Host ('winget exit code: ' + $LASTEXITCODE)
+  $env:Path = [Environment]::GetEnvironmentVariable('Path','Machine') + ';' + [Environment]::GetEnvironmentVariable('Path','User')
+}
+$hasNode = [bool](Get-Command node -ErrorAction SilentlyContinue)
+if (-not $hasNode) {
+  Write-Host ''
+  Write-Host '[ERROR] Node.js aun no aparece. winget lo instalo pero necesita cerrar y reabrir la app (o PowerShell) para refrescar el PATH.'
+  Write-Host 'Reabre SamirTechTools y vuelve a instalar OpenCode.'
+  exit 1
+}
+Write-Host ('Node.js listo: ' + (node --version))
+
+Write-Host ''
+Write-Host '=== PASO 2/3: Set-ExecutionPolicy Bypass (solo esta sesion) ==='
+Set-ExecutionPolicy Bypass -Scope Process
+Write-Host 'ExecutionPolicy configurado.'
+if (-not (Get-Command npm -ErrorAction SilentlyContinue)) {
+  $env:Path = [Environment]::GetEnvironmentVariable('Path','Machine') + ';' + [Environment]::GetEnvironmentVariable('Path','User')
+}
+
+Write-Host ''
+Write-Host '=== PASO 3/3: Instalando OpenCode CLI (npm) ==='
+npm install -g opencode-ai
+Write-Host ('npm exit code: ' + $LASTEXITCODE)
+if ($LASTEXITCODE -ne 0) {
+  Write-Host '[ERROR] npm no pudo instalar opencode. Revisa la conexion a internet y reintenta.'
+  exit 1
+}
+$env:Path = [Environment]::GetEnvironmentVariable('Path','User') + ';' + [Environment]::GetEnvironmentVariable('Path','Machine')
+if (Get-Command opencode -ErrorAction SilentlyContinue) {
+  Write-Host ('OpenCode CLI instalado: ' + (opencode --version))
+} else {
+  Write-Host 'OpenCode CLI instalado. Abre PowerShell en cualquier carpeta y escribe "opencode".'
+}
+Write-Host 'Listo.'
+`;
+
+  let fullOut = '';
+  return await new Promise((resolve) => {
+    const child = spawn('powershell', ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-Command', script], { windowsHide: true });
+    const send = (chunk, isErr) => {
+      const text = chunk.toString();
+      fullOut += text;
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.webContents.send('command-progress', { chunk: text, isErr });
+      }
+    };
+    child.stdout.on('data', (d) => send(d, false));
+    child.stderr.on('data', (d) => send(d, true));
+    const t = setTimeout(() => { try { child.kill(); } catch {} resolve({ success: false, output: fullOut + '\nTimeout (15min)' }); }, 900000);
+    child.on('close', (code) => {
+      clearTimeout(t);
+      const ok = code === 0 || /instalado|listo/i.test(fullOut);
+      resolve({ success: ok, output: fullOut });
+    });
+    child.on('error', (err) => { clearTimeout(t); fullOut += String(err); resolve({ success: false, output: fullOut }); });
+  });
+});
+
 const wingetChildren = new Map();
 ipcMain.handle('winget-cancel', async (event, wingetId) => {
   const child = wingetChildren.get(wingetId);
@@ -654,6 +734,17 @@ ipcMain.handle('winget-install', async (event, wingetId) => {
     try { if (!fs.existsSync(path.join(process.env.LOCALAPPDATA || '', 'Microsoft', 'WindowsApps', 'winget.exe'))) wingetExists = false; } catch {}
   }
 
+  // Si winget no viene con Windows (algunas instalaciones/PC antiguos), ofrecer instalarlo via Microsoft Store
+  if (!wingetExists) {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('winget-progress', { wingetId, chunk: '\n[SamirTechTools] winget no esta instalado. Abriendo Microsoft Store para instalar "App Installer" (incluye winget)...\n', isErr: false });
+    }
+    try {
+      shell.openExternal('ms-windows-store://pdp/?ProductId=9NBLGGH4NNS1');
+    } catch {}
+    return { success: false, output: '\n[AYUDA] winget no esta instalado en este equipo. Se abrio Microsoft Store en la pagina de "App Installer" (que incluye winget).\n1) Haz clic en "Obtener"/"Instalar" y espera a que termine (te redirigira a la MS Store).\n2) Cierra y reabre SamirTechTools.\n3) Reintenta la instalacion.\nSi la MS Store no trae App Installer, descargalo manualmente: https://apps.microsoft.com/detail/9nblggh4nns1', code: -1 };
+  }
+
   // Soporte msstore: prefijo (ej: msstore:9NT1R1C2HH7J -> winget install --id 9NT1R1C2HH7J --source msstore)
   let idArg = wingetId;
   let sourceArg = '--source winget';
@@ -664,31 +755,109 @@ ipcMain.handle('winget-install', async (event, wingetId) => {
     idArg = wingetId.replace('winget:', '');
   }
 
-  const baseArgs = `install --id "${idArg}" -e ${sourceArg} --accept-source-agreements --accept-package-agreements --disable-interactivity --ignore-security-hash`;
+  // --silent hace la instalacion automatica sin ventanas emergentes/terminos (NOTA: NO usar -h porque es el flag de ayuda de winget)
+  // --ignore-security-hash se omite del intento normal: si InstallerHashOverride no esta habilitado, winget muestra la ayuda en vez de instalar.
+  const baseArgs = `install --id "${idArg}" -e ${sourceArg} --silent --accept-source-agreements --accept-package-agreements --disable-interactivity`;
+
+  // Obtener el tamano total (Content-Length) de un url descargable via HEAD, para calcular el % real de descarga
+  function headLength(url) {
+    return new Promise((resolve) => {
+      const mod = url.startsWith('https') ? https : http;
+      const req = mod.get(url, { method: 'HEAD', headers: { 'User-Agent': 'Mozilla/5.0' }, timeout: 15000 }, (res) => {
+        const len = parseInt(res.headers['content-length'] || '', 10);
+        res.resume();
+        resolve(Number.isFinite(len) && len > 0 ? len : 0);
+      });
+      req.on('error', () => resolve(0));
+      req.setTimeout(15000, () => { try { req.destroy(); } catch {} resolve(0); });
+    });
+  }
+
+  // Monitorear los bytes descargados por winget en %TEMP%\WinGet y emitir el % via winget-progress-pct
+  let monitorTimer = null;
+  let monitorActive = false;
+  function startDownloadMonitor(url, child) {
+    if (monitorActive) return;
+    monitorActive = true;
+    headLength(url).then((total) => {
+      if (!total) { monitorActive = false; return; }
+      monitorTimer = setInterval(() => {
+        if (child.exitCode !== null) { stopDownloadMonitor(); return; }
+        let bytes = 0;
+        try {
+          const base = path.join(process.env.TEMP || os.tmpdir(), 'WinGet');
+          if (fs.existsSync(base)) {
+            const files = fs.readdirSync(base, { withFileTypes: true })
+              .filter(e => e.isDirectory())
+              .map(e => path.join(base, e.name));
+            for (const dir of files) {
+              try {
+                const s = fs.statSync(dir);
+                if (s.isDirectory()) {
+                  const rec = fs.readdirSync(dir, { withFileTypes: true }).filter(e => e.isFile());
+                  for (const f of rec) {
+                    const fp = path.join(dir, f.name);
+                    try { const st = fs.statSync(fp); if (st.size > bytes) bytes = st.size; } catch {}
+                  }
+                }
+              } catch {}
+            }
+          }
+        } catch {}
+        const pct = Math.min(100, Math.round((bytes / total) * 100));
+        if (bytes > 0 && pct >= 0 && pct <= 100 && mainWindow && !mainWindow.isDestroyed()) {
+          mainWindow.webContents.send('winget-progress-pct', { wingetId, percent: pct, phase: 'download' });
+        }
+        if (pct >= 100) stopDownloadMonitor();
+      }, 600);
+    });
+  }
+  function stopDownloadMonitor() {
+    if (monitorTimer) { clearInterval(monitorTimer); monitorTimer = null; }
+    monitorActive = false;
+  }
+  function sendPhase(phase) {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('winget-progress-pct', { wingetId, phase });
+    }
+  }
 
   function runWinget(fullCmd, timeoutMs = 900000) {
     return new Promise((resolve) => {
       const child = spawn(fullCmd, { shell: true, windowsHide: true });
       wingetChildren.set(wingetId, child);
       let out = '';
+      let dlStarted = false;
       const send = (chunk, isErr = false) => {
         const text = chunk.toString();
         out += text;
+        // Detectar inicio de descarga para calcular el % real por bytes
+        const m = text.match(/Descargando\s+(https?:\/\/\S+)/i);
+        if (m && !dlStarted) {
+          dlStarted = true;
+          sendPhase('download');
+          startDownloadMonitor(m[1], child);
+        }
+        // Cambios de fase para el avance visual
+        if (/verific|hash.*comprob|hash/i.test(text)) sendPhase('verify');
+        else if (/iniciando instalacion|installing|ejecutando instalador/i.test(text)) sendPhase('install');
+        else if (/instalado correctamente|successfully installed/i.test(text)) { stopDownloadMonitor(); sendPhase('done'); }
         if (mainWindow && !mainWindow.isDestroyed()) {
           mainWindow.webContents.send('winget-progress', { wingetId, chunk: text, isErr });
         }
       };
       child.stdout.on('data', (d) => send(d, false));
       child.stderr.on('data', (d) => send(d, true));
-      const t = setTimeout(() => { try { child.kill(); } catch {} wingetChildren.delete(wingetId); resolve({ success: false, output: out + '\nTimeout: la instalacion tardo demasiado', code: -1 }); }, timeoutMs);
+      const t = setTimeout(() => { try { child.kill(); } catch {} stopDownloadMonitor(); wingetChildren.delete(wingetId); resolve({ success: false, output: out + '\nTimeout: la instalacion tardo demasiado', code: -1 }); }, timeoutMs);
       child.on('close', (code) => {
         clearTimeout(t);
+        stopDownloadMonitor();
         wingetChildren.delete(wingetId);
         if (/Cancelado por usuario/i.test(out)) resolve({ success: false, output: out, code: -1 });
         else if (code === 0 || /instalado|successfully installed/i.test(out)) resolve({ success: true, output: out, code: code || 0 });
         else resolve({ success: false, output: out || `Exit code ${code}`, code: code || -1 });
       });
-      child.on('error', (err) => { clearTimeout(t); wingetChildren.delete(wingetId); resolve({ success: false, output: out + String(err), code: -1 }); });
+      child.on('error', (err) => { clearTimeout(t); stopDownloadMonitor(); wingetChildren.delete(wingetId); resolve({ success: false, output: out + String(err), code: -1 }); });
     });
   }
 
@@ -703,7 +872,7 @@ ipcMain.handle('winget-install', async (event, wingetId) => {
   }
 
   // Detector de error de hash (Google Chrome, Brave, etc. cambian el instalador y el manifest queda desactualizado)
-  const isHashError = /Installer hash does not match|hash.*mismatch|InstallerHashOverride/i.test(result.output);
+  const isHashError = /Installer hash does not match|hash does not match|hash.*mismatch/i.test(result.output);
 
   if (!result.success && isHashError) {
     if (mainWindow && !mainWindow.isDestroyed()) {
@@ -716,7 +885,7 @@ ipcMain.handle('winget-install', async (event, wingetId) => {
     // Este error NO se puede ignorar si se ejecuta como admin ("This cannot be overridden when running as admin")
     // Por eso el reintento debe ser SIN elevacion via runas /trustlevel:0x20000 (non-admin)
     const isAdminMsg = /cannot be overridden when running as admin/i.test(result.output);
-    const retryArgs = baseArgs; // ya incluye --ignore-security-hash
+    const retryArgs = baseArgs + ' --ignore-security-hash'; // el ignore-security-hash solo en el reintento por error de hash real
     let retryCmd;
     if (isAdminMsg) {
       // De-elevate: runas con trustlevel 0x20000 ejecuta sin admin incluso si la app esta elevada
