@@ -37,6 +37,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   wingetList: () => ipcRenderer.invoke('winget-list'),
   executeTool: (tool, args) => ipcRenderer.invoke('execute-tool', { tool, args }),
   onWingetProgress: (cb) => ipcRenderer.on('winget-progress', (e, data) => cb(data)),
+  onCommandProgress: (cb) => ipcRenderer.on('command-progress', (e, data) => cb(data)),
 
   // Download
   downloadFile: (url, destPath) => ipcRenderer.invoke('download-file', { url, destPath }),

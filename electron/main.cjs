@@ -568,6 +568,34 @@ ipcMain.handle('execute-tool', async (event, { tool, args }) => {
 
 ipcMain.handle('run-command', async (event, command) => await runCommand(command));
 
+// Ejecutar lista de comandos en secuencia (ej: instalar OpenCode CLI) con progreso en vivo
+ipcMain.handle('run-commands', async (event, commands) => {
+  const { spawn } = require('child_process');
+  const list = Array.isArray(commands) ? commands : [commands];
+  let fullOut = '';
+  for (const cmd of list) {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('command-progress', { chunk: `\n> ${cmd}\n`, isErr: false });
+    }
+    await new Promise((resolve) => {
+      const child = spawn('powershell', ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-Command', cmd], { windowsHide: true });
+      const send = (chunk, isErr) => {
+        const text = chunk.toString();
+        fullOut += text;
+        if (mainWindow && !mainWindow.isDestroyed()) {
+          mainWindow.webContents.send('command-progress', { chunk: text, isErr });
+        }
+      };
+      child.stdout.on('data', (d) => send(d, false));
+      child.stderr.on('data', (d) => send(d, true));
+      const t = setTimeout(() => { try { child.kill(); } catch {} resolve(); }, 300000);
+      child.on('close', () => { clearTimeout(t); resolve(); });
+      child.on('error', (err) => { clearTimeout(t); fullOut += String(err); resolve(); });
+    });
+  }
+  return { success: true, output: fullOut };
+});
+
 const wingetChildren = new Map();
 ipcMain.handle('winget-cancel', async (event, wingetId) => {
   const child = wingetChildren.get(wingetId);

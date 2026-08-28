@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { AppWindow, Download, ExternalLink, Loader, FileText, StickyNote, Box, Globe } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { AppWindow, Download, ExternalLink, Loader, FileText, StickyNote, Box, Globe, Terminal } from 'lucide-react';
 import { ToolCard, ConsoleOutput, ConfirmModal } from '../components';
 import { useLogs } from '../context/LogContext';
 
@@ -13,6 +13,19 @@ const extraApps = [
     website: 'https://www.google.com/chrome/',
     accentColor: 'yellow',
     icon: Globe,
+  },
+  {
+    id: 'opencode',
+    name: 'OpenCode (CLI)',
+    description: 'Asistente de IA en terminal. Instala globalmente vía npm: Set-ExecutionPolicy Bypass -Scope Process + npm i -g opencode-ai. Luego ejecuta "opencode" en cualquier carpeta.',
+    type: 'command',
+    commands: [
+      'Set-ExecutionPolicy Bypass -Scope Process',
+      'npm i -g opencode-ai',
+    ],
+    website: 'https://opencode.ai',
+    accentColor: 'green',
+    icon: Terminal,
   },
   {
     id: 'jopdf',
@@ -53,17 +66,32 @@ export function ExtraAppsPage() {
   const [active, setActive] = useState('');
   const [confirm, setConfirm] = useState<{ open: boolean; title: string; message: string; onConfirm: () => void }>({ open: false, title: '', message: '', onConfirm: () => {} });
 
+  useEffect(() => {
+    if (!window.electronAPI?.onCommandProgress) return;
+    const handler = (data: { chunk: string; isErr?: boolean }) => {
+      setOutput(prev => prev + data.chunk);
+    };
+    window.electronAPI.onCommandProgress(handler);
+  }, []);
+
   const doDownload = (app: typeof extraApps[0]) => {
     setConfirm({
       open: true,
       title: `Descargar ${app.name}`,
-      message: app.url.startsWith('winget:') ? `Se instalará vía WinGet: ${app.url.replace('winget:', '')}` : `Se descargará desde: ${app.url}\n\n¿Continuar?`,
+      message: app.type === 'command'
+        ? `Se ejecutará en terminal:\n${app.commands!.join('\n')}\n\n¿Continuar?`
+        : (app.url ?? '').startsWith('winget:') ? `Se instalará vía WinGet: ${(app.url ?? '').replace('winget:', '')}` : `Se descargará desde: ${app.url}\n\n¿Continuar?`,
       onConfirm: async () => {
         setConfirm({ ...confirm, open: false });
         setLoading(true); setOutput(''); setActive(app.name);
         try {
-          if (app.url.startsWith('winget:')) {
-            const wingetId = app.url.replace('winget:', '');
+          if (app.type === 'command' && app.commands) {
+            addLog('Extra Apps', app.name, `comandos: ${app.commands.join(' && ')}`, 'info');
+            const r = await window.electronAPI.runCommands(app.commands);
+            setOutput(prev => prev + (r.output || ''));
+            addLog('Extra Apps', app.name, 'Comandos ejecutados', 'success');
+          } else if (app.url!.startsWith('winget:')) {
+            const wingetId = app.url!.replace('winget:', '');
             addLog('Extra Apps', app.name, `winget install ${wingetId}`, 'info');
             const r = await window.electronAPI.wingetInstall(wingetId);
             setOutput(r.output || '');
@@ -75,16 +103,16 @@ export function ExtraAppsPage() {
           } else {
             const dlDir = 'C:\\ExtraApps';
             await window.electronAPI.runCommand(`if not exist "${dlDir}" mkdir "${dlDir}"`);
-            const dest = `${dlDir}\\${app.fileName}`;
+            const dest = `${dlDir}\\${app.fileName!}`;
             addLog('Extra Apps', app.name, `Descargando a ${dest}`, 'info');
-            const r = await window.electronAPI.downloadFile(app.url, dest);
+            const r = await window.electronAPI.downloadFile(app.url!, dest);
             if (!r.success) {
               const msg = String(r.output || '');
-              const isMediaFire = app.url.includes('mediafire.com') || msg.toLowerCase().includes('mediafire') || msg.toLowerCase().includes('pagina html');
+              const isMediaFire = app.url!.includes('mediafire.com') || msg.toLowerCase().includes('mediafire') || msg.toLowerCase().includes('pagina html');
               if (isMediaFire) {
                 setOutput(`Error: ${msg}\n\nEl link directo de MediaFire expiro (devuelve pagina HTML de 34KB, sin icono). Solucion: se abrira el navegador con el link y la carpeta C:\\ExtraApps. Descargalo manualmente desde MediaFire y colocalo en C:\\ExtraApps.`);
                 addLog('Extra Apps', app.name, 'Link MediaFire expirado - abriendo navegador', 'error');
-                window.electronAPI.openExternal(app.url);
+                window.electronAPI.openExternal(app.url!);
                 window.electronAPI.openPath(dlDir);
               } else {
                 setOutput(`Error: ${msg}`);
@@ -126,7 +154,7 @@ export function ExtraAppsPage() {
               status="info"
               statusText="Disponible"
               accentColor={app.accentColor}
-              primaryAction="Descargar"
+              primaryAction={app.type === 'command' ? 'Instalar' : 'Descargar'}
               primaryOnClick={() => doDownload(app)}
               secondaryAction="Sitio oficial"
               secondaryOnClick={() => window.electronAPI.openExternal(app.website)}

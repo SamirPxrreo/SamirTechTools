@@ -173,6 +173,8 @@ export interface ElectronAPI {
   clearRam: () => Promise<{ success: boolean; output: string }>;
   onDownloadProgress: (callback: (data: DownloadProgress) => void) => void;
   onWingetProgress: (callback: (data: { wingetId: string; chunk: string; isErr: boolean }) => void) => void;
+  runCommands: (commands: string[]) => Promise<{ success: boolean; output: string }>;
+  onCommandProgress: (callback: (data: { chunk: string; isErr?: boolean }) => void) => void;
   mountIso: (isoPath: string) => Promise<{ success: boolean; driveLetter: string; output?: string }>;
   unmountIso: (isoPath: string) => Promise<{ success: boolean; output?: string }>;
   getDrivers: () => Promise<DriverInfo[]>;
