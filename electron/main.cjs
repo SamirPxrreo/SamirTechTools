@@ -615,8 +615,8 @@ if ($hasNode) {
     Start-Process 'ms-windows-store://pdp/?ProductId=9NBLGGH4NNS1'
     exit 1
   }
-  Write-Host 'Instalando Node.js LTS via winget (OpenJS.Node.js.LTS)...'
-  winget install --id OpenJS.Node.js.LTS -e --source winget --silent --accept-package-agreements --accept-source-agreements --disable-interactivity
+  Write-Host 'Instalando Node.js LTS via winget (OpenJS.NodeJS.LTS)...'
+  winget install --id OpenJS.NodeJS.LTS -e --source winget --accept-package-agreements --accept-source-agreements
   Write-Host ('winget exit code: ' + $LASTEXITCODE)
   $env:Path = [Environment]::GetEnvironmentVariable('Path','Machine') + ';' + [Environment]::GetEnvironmentVariable('Path','User')
 }
@@ -624,14 +624,15 @@ $hasNode = [bool](Get-Command node -ErrorAction SilentlyContinue)
 if (-not $hasNode) {
   Write-Host ''
   Write-Host '[ERROR] Node.js aun no aparece. winget lo instalo pero necesita cerrar y reabrir la app (o PowerShell) para refrescar el PATH.'
-  Write-Host 'Reabre SamirTechTools y vuelve a instalar OpenCode.'
+  Write-Host 'Reabre SamirTechTools y vuelve a instalar OpenCode. (Equivale a tu PRIMERO paso 2: cerrar terminal y volverla a abrir)'
   exit 1
 }
 Write-Host ('Node.js listo: ' + (node --version))
 
 Write-Host ''
-Write-Host '=== PASO 2/3: Set-ExecutionPolicy Bypass (solo esta sesion) ==='
-Set-ExecutionPolicy Bypass -Scope Process
+Write-Host '=== PASO 2/3: Set-ExecutionPolicy RemoteSigned (CurrentUser) + Bypass (Process) ==='
+Set-ExecutionPolicy -Scope CurrentUser -ExecutionPolicy RemoteSigned -Force
+Set-ExecutionPolicy Bypass -Scope Process -Force
 Write-Host 'ExecutionPolicy configurado.'
 if (-not (Get-Command npm -ErrorAction SilentlyContinue)) {
   $env:Path = [Environment]::GetEnvironmentVariable('Path','Machine') + ';' + [Environment]::GetEnvironmentVariable('Path','User')
