@@ -79,10 +79,10 @@ const extraApps: ExtraApp[] = [
   {
     id: 'aionui',
     name: 'AionUi 2.1.44',
-    description: 'Versión 2.1.44 clásica (MediaFire). Si la descarga queda congelada/30KB es porque el link directo expiro: usa "Sitio oficial" o abre el link en el navegador.',
-    url: 'https://www.mediafire.com/file/iaq4v6j4eucftwq/AionUi-2.1.44-win-x64.exe/file',
+    description: 'Versión 2.1.44 clásica. Descarga directa desde GitHub Releases.',
+    url: 'https://github.com/SamirPxrreo/AionUi-Downloads/releases/download/v2.1.44/AionUi-2.1.44-win-x64.exe',
     fileName: 'AionUi-2.1.44-win-x64.exe',
-    website: 'https://www.mediafire.com/file/iaq4v6j4eucftwq/AionUi-2.1.44-win-x64.exe/file',
+    website: 'https://github.com/SamirPxrreo/AionUi-Downloads/releases/tag/v2.1.44',
     accentColor: 'cyan',
     icon: Box,
   },
@@ -147,7 +147,7 @@ export function ExtraAppsPage() {
               const msg = String(r.output || '');
               const isMediaFire = app.url!.includes('mediafire.com') || msg.toLowerCase().includes('mediafire') || msg.toLowerCase().includes('pagina html');
               if (isMediaFire) {
-                setOutput(`Error: ${msg}\n\nEl link directo de MediaFire expiro (devuelve pagina HTML de 34KB, sin icono). Solucion: se abrira el navegador con el link y la carpeta C:\\ExtraApps. Descargalo manualmente desde MediaFire y colocalo en C:\\ExtraApps.`);
+                setOutput(`Error: ${msg}\n\nMediaFire no permite descarga directa automatica (requiere clic en "Download" dentro de la pagina).\nPara descarga automatica: sube el archivo a un host con link directo (recomendados: catbox.moe, pixeldrain.com, archive.org, GitHub Releases, Google Drive con link directo, o tu propio hosting/S3) y actualiza la URL.\nPor ahora se abrira el navegador para descarga manual — coloca el archivo en C:\\ExtraApps.`);
                 addLog('Extra Apps', app.name, 'Link MediaFire expirado - abriendo navegador', 'error');
                 window.electronAPI.openExternal(app.url!);
                 window.electronAPI.openPath(dlDir);

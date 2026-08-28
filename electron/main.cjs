@@ -604,14 +604,19 @@ $ErrorActionPreference = 'Continue'
 
 Write-Host ''
 Write-Host '=== PASO 1/3: Verificando Node.js ==='
+# Verificar winget funcional (no solo archivo) antes de abrir Store — fix #1
+$wingetOk = $false; $wingetVer = ''
+try { $wingetVer = (winget --version 2>&1 | Out-String).Trim(); if ($wingetVer) { $wingetOk = $true } } catch {}
+if (-not $wingetOk) { try { if (Get-Command winget -ErrorAction SilentlyContinue) { $wingetOk = $true } } catch {} }
+if (-not $wingetOk -and (Test-Path "$env:LOCALAPPDATA\\Microsoft\\WindowsApps\\winget.exe")) { $wingetOk = $true }
+if ($wingetOk -and $wingetVer) { Write-Host "winget detectado: $wingetVer" }
 $hasNode = [bool](Get-Command node -ErrorAction SilentlyContinue)
 if ($hasNode) {
   Write-Host ('Node.js detectado: ' + (node --version))
 } else {
   Write-Host 'Node.js NO esta instalado.'
-  if (-not (Get-Command winget -ErrorAction SilentlyContinue)) {
-    Write-Host '[ERROR] winget tampoco esta disponible. Instala "App Installer" (winget) desde Microsoft Store primero:'
-    Write-Host '  ms-windows-store://pdp/?ProductId=9NBLGGH4NNS1'
+  if (-not $wingetOk) {
+    Write-Host '[ERROR] winget no esta instalado. Abriendo Microsoft Store...'
     Start-Process 'ms-windows-store://pdp/?ProductId=9NBLGGH4NNS1'
     exit 1
   }
@@ -620,11 +625,19 @@ if ($hasNode) {
   Write-Host ('winget exit code: ' + $LASTEXITCODE)
   $env:Path = [Environment]::GetEnvironmentVariable('Path','Machine') + ';' + [Environment]::GetEnvironmentVariable('Path','User')
 }
+# Refrescar PATH sin reiniciar app (evita cerrar/reabrir SamirTechTools) — fix #1
+$env:Path = [Environment]::GetEnvironmentVariable('Path','Machine') + ';' + [Environment]::GetEnvironmentVariable('Path','User')
 $hasNode = [bool](Get-Command node -ErrorAction SilentlyContinue)
 if (-not $hasNode) {
+  # Intentar ruta tipica de Node sin reiniciar
+  $nodePaths = @("$env:ProgramFiles\\nodejs\\node.exe", "$env:ProgramFiles(x86)\\nodejs\\node.exe", "$env:LOCALAPPDATA\\Programs\\nodejs\\node.exe")
+  foreach ($np in $nodePaths) { if (Test-Path $np) { $env:Path += ";$(Split-Path $np)"; break } }
+  $hasNode = [bool](Get-Command node -ErrorAction SilentlyContinue)
+}
+if (-not $hasNode) {
   Write-Host ''
-  Write-Host '[ERROR] Node.js aun no aparece. winget lo instalo pero necesita cerrar y reabrir la app (o PowerShell) para refrescar el PATH.'
-  Write-Host 'Reabre SamirTechTools y vuelve a instalar OpenCode. (Equivale a tu PRIMERO paso 2: cerrar terminal y volverla a abrir)'
+  Write-Host '[ERROR] Node.js aun no aparece. winget lo instalo pero necesita refrescar el PATH.'
+  Write-Host 'Cierra y reabre SamirTechTools y reintenta. Si persiste, abre PowerShell y ejecuta: node --version'
   exit 1
 }
 Write-Host ('Node.js listo: ' + (node --version))
@@ -725,25 +738,39 @@ ipcMain.handle('winget-install', async (event, wingetId) => {
     }
   } catch {}
 
-  // Validar que winget realmente existe antes de intentar instalar (evita "no se reconoce como comando")
+  // Validar que winget realmente funciona (no solo que existe el archivo) — evita abrir Store si ya está instalado aunque desactualizado
   let wingetExists = false;
+  let wingetVersion = '';
   try {
-    const check = await ps(`if (Get-Command winget -ErrorAction SilentlyContinue) { echo ok } elseif (Test-Path "$env:LOCALAPPDATA\\Microsoft\\WindowsApps\\winget.exe") { echo ok } else { echo no }`);
-    wingetExists = check.output.trim() === 'ok';
+    // 1) Probar que el comando responde (funcional, no solo archivo presente)
+    const vCheck = await new Promise((res) => {
+      const { exec } = require('child_process');
+      exec(`${wingetCmd} --version`, { timeout: 8000, windowsHide: true }, (err, stdout) => {
+        if (!err && stdout && stdout.trim()) res(stdout.trim());
+        else res('');
+      });
+    });
+    if (vCheck) { wingetExists = true; wingetVersion = vCheck; }
+    else {
+      // Fallback: Get-Command / archivo
+      const check = await ps(`if (Get-Command winget -ErrorAction SilentlyContinue) { echo ok } elseif (Test-Path "$env:LOCALAPPDATA\\Microsoft\\WindowsApps\\winget.exe") { echo ok } else { echo no }`);
+      wingetExists = check.output.trim() === 'ok';
+    }
   } catch {}
   if (!wingetExists) {
-    try { if (!fs.existsSync(path.join(process.env.LOCALAPPDATA || '', 'Microsoft', 'WindowsApps', 'winget.exe'))) wingetExists = false; } catch {}
+    try { if (fs.existsSync(path.join(process.env.LOCALAPPDATA || '', 'Microsoft', 'WindowsApps', 'winget.exe'))) wingetExists = true; } catch {}
   }
 
-  // Si winget no viene con Windows (algunas instalaciones/PC antiguos), ofrecer instalarlo via Microsoft Store
   if (!wingetExists) {
     if (mainWindow && !mainWindow.isDestroyed()) {
       mainWindow.webContents.send('winget-progress', { wingetId, chunk: '\n[SamirTechTools] winget no esta instalado. Abriendo Microsoft Store para instalar "App Installer" (incluye winget)...\n', isErr: false });
     }
-    try {
-      shell.openExternal('ms-windows-store://pdp/?ProductId=9NBLGGH4NNS1');
-    } catch {}
-    return { success: false, output: '\n[AYUDA] winget no esta instalado en este equipo. Se abrio Microsoft Store en la pagina de "App Installer" (que incluye winget).\n1) Haz clic en "Obtener"/"Instalar" y espera a que termine (te redirigira a la MS Store).\n2) Cierra y reabre SamirTechTools.\n3) Reintenta la instalacion.\nSi la MS Store no trae App Installer, descargalo manualmente: https://apps.microsoft.com/detail/9nblggh4nns1', code: -1 };
+    try { shell.openExternal('ms-windows-store://pdp/?ProductId=9NBLGGH4NNS1'); } catch {}
+    return { success: false, output: '\n[AYUDA] winget no esta instalado en este equipo. Se abrio Microsoft Store en la pagina de "App Installer" (que incluye winget).\n1) Haz clic en "Obtener"/"Instalar" y espera a que termine.\n2) Cierra y reabre SamirTechTools.\n3) Reintenta la instalacion.\nSi la MS Store no trae App Installer, descargalo manualmente: https://apps.microsoft.com/detail/9nblggh4nns1', code: -1 };
+  }
+  // Si existe, informar versión detectada (evita el paso extra de reinstalar winget)
+  if (wingetVersion && mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send('winget-progress', { wingetId, chunk: `[SamirTechTools] winget detectado: ${wingetVersion} — continuando instalacion...\n`, isErr: false });
   }
 
   // Soporte msstore: prefijo (ej: msstore:9NT1R1C2HH7J -> winget install --id 9NT1R1C2HH7J --source msstore)
@@ -774,7 +801,7 @@ ipcMain.handle('winget-install', async (event, wingetId) => {
     });
   }
 
-  // Monitorear los bytes descargados por winget en %TEMP%\WinGet y emitir el % via winget-progress-pct
+  // Monitorear bytes descargados en %TEMP%\WinGet — intervalo 1500ms para reducir uso de CPU/disco (fix #2)
   let monitorTimer = null;
   let monitorActive = false;
   function startDownloadMonitor(url, child) {
@@ -788,18 +815,13 @@ ipcMain.handle('winget-install', async (event, wingetId) => {
         try {
           const base = path.join(process.env.TEMP || os.tmpdir(), 'WinGet');
           if (fs.existsSync(base)) {
-            const files = fs.readdirSync(base, { withFileTypes: true })
-              .filter(e => e.isDirectory())
-              .map(e => path.join(base, e.name));
-            for (const dir of files) {
+            const entries = fs.readdirSync(base, { withFileTypes: true }).filter(e => e.isDirectory());
+            for (const e of entries) {
               try {
-                const s = fs.statSync(dir);
-                if (s.isDirectory()) {
-                  const rec = fs.readdirSync(dir, { withFileTypes: true }).filter(e => e.isFile());
-                  for (const f of rec) {
-                    const fp = path.join(dir, f.name);
-                    try { const st = fs.statSync(fp); if (st.size > bytes) bytes = st.size; } catch {}
-                  }
+                const dir = path.join(base, e.name);
+                const rec = fs.readdirSync(dir, { withFileTypes: true }).filter(f => f.isFile());
+                for (const f of rec) {
+                  try { const st = fs.statSync(path.join(dir, f.name)); if (st.size > bytes) bytes = st.size; } catch {}
                 }
               } catch {}
             }
@@ -810,7 +832,7 @@ ipcMain.handle('winget-install', async (event, wingetId) => {
           mainWindow.webContents.send('winget-progress-pct', { wingetId, percent: pct, phase: 'download' });
         }
         if (pct >= 100) stopDownloadMonitor();
-      }, 600);
+      }, 1500);
     });
   }
   function stopDownloadMonitor() {
