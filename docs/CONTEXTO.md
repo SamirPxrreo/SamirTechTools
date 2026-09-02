@@ -46,9 +46,9 @@ Aplicación de escritorio para técnicos de soporte informático. Centro de diag
 ## Funcionalidades implementadas
 
 ### Diagnóstico (Dashboard)
-- CPU/RAM/GPU/discos/red/Windows vía CIM/WMI — **CPU/RAM en vivo cada 2s** (`App.tsx` polling) y **VRAM fix para Intel Arc** en un solo spawn PS
-- **VRAM**: `Win32_VideoController.AdapterRAM` se limita a 4GB (uint32), así que la VRAM real se lee del registro `HKLM\...\0000` → `HardwareInformation.qwMemorySize` (Intel Arc 8GB), fallback `qpmemorySize`/`memorySize`. Optimizado a 1 solo `ps()` (antes 5 spawns causaban delay negro)
-- **Liberar RAM**: IPC `clear-ram` que purga la standby list vía `NtSetSystemInformation` (C# embebido con Add-Type, ejecutado elevado desde temp). El método viejo (SetProcessWorkingSetSize) NO funcionaba
+- CPU/RAM/GPU/discos/red/Windows vía CIM/WMI + `os.cpus()`/`os.totalmem` — **estático, sin polling** (0% background), carga progresiva tier1 (cpu/ram rápido) + tier2 (disco/gpu/windows/red en background)
+- **VRAM**: `Win32_VideoController.AdapterRAM` se limita a 4GB (uint32), así que la VRAM real se lee del registro `HKLM\...\0000` → `HardwareInformation.qwMemorySize` (Intel Arc 8GB), fallback `qpmemorySize`/`memorySize`. Optimizado a 1 solo `ps()` + cache 10min
+- **Cache**: RAM módulos 10min, GPU/Windows 10min, disco/red 30s, Network 1 solo PS (antes 6), temp CPU 30s
 - **SystemCard**: texto `select-text` para copiar con menú nativo (click derecho), `break-words` + `col-span-2` para placa base larga
 - Generador de reporte .txt al Escritorio
 
@@ -112,9 +112,9 @@ Set-Content -Path "node_modules\electron\path.txt" -Value "electron.exe" -NoNewl
 - **Minimal Pro**: Header `bg-white/80 backdrop-blur`, sidebar 252px con cards `rounded-2xl`, `ToolCard` `rounded-[20px]`, `SystemCard` `bg-slate-50`. Info del sistema solo en Header (no repetida en sidebar).
 - **Tipografía `Outfit`**, bordes modernos, hover/sombras suaves.
 
-## Estado (27/08/2026)
-- App funcional, probada en Windows 11 x64 (Intel i7-1165G7, VirtualBox, host 192.168.0.148)
-- Instaladores **v1.0.0** únicos publicados en GitHub (Setup ~67.2MB + Portable ~67MB) — `gh release upload v1.0.0 --clobber` — incluye `icon.png` circular, `asInvoker`, winget hash fix, CPU `Get-Counter`, `InstallContext` con cancelar y registro colapsable
+## Estado (02/09/2026)
+- App funcional, probada en Windows 11 x64 - dashboard estático 0% background, carga progresiva tier1/tier2, CPU nativo sin PowerShell
+- Instaladores **v1.0.0** actualizados 02/09/2026 en GitHub (Setup ~64.6MB + Portable ~64.4MB, bundle 315KB) — `gh release upload v1.0.0 --clobber` — incluye perf 02/09 (cache 30s-10min, Network 1 PS, polling eliminado, LogContext 300)
 - dControl de Sordum incluido en `resources/defender-control/` (ya no ignorado, se versiona con `git add -f`)
 
 ## Pendientes / ideas futuras

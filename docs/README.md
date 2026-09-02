@@ -39,7 +39,7 @@ Ve a la sección [Releases](https://github.com/SamirPxrreo/SamirTechTools/releas
 
 | Módulo | Descripción |
 |---|---|
-| **Diagnóstico** | CPU, RAM, GPU, discos, red y Windows en tiempo real + reporte en TXT |
+| **Diagnóstico** | CPU, RAM, GPU, discos, red y Windows (info estática, 0% en segundo plano, sin polling) + reporte en TXT |
 | **Windows** | SFC, DISM, CHKDSK, Windows Defender (panel integrado), reparación de Defender |
 | **Activación** | Abre Massgrave (MAS) — Windows y Office, eliges el método en su menú |
 | **Office** | Instalación **Online** (365/2024/2021/2019 con XML generado automáticamente) y **Offline** (ISO descargada y montada automáticamente), activación y reparación |
