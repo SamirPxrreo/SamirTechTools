@@ -80,30 +80,6 @@ function AppContent() {
     loadSystemInfo();
   }, []);
 
-  // Polling liviano CPU/RAM cada 3s via getLiveStats (0 PowerShell) - pausa si pestaña oculta o no está en dashboard
-  useEffect(() => {
-    if (currentPage !== 'dashboard') return;
-    let alive = true;
-    const tick = async () => {
-      if (document.hidden) return;
-      try {
-        if (window.electronAPI.getLiveStats) {
-          const stats = await window.electronAPI.getLiveStats();
-          if (!alive) return;
-          setCpuInfo(stats.cpu);
-          setRamInfo((prev) => prev ? { ...prev, total: stats.ram.total, used: stats.ram.used, free: stats.ram.free, percentage: stats.ram.percentage } : { ...stats.ram, modules: [], moduleCount: 'N/A' });
-        } else {
-          const [cpu, ram] = await Promise.all([window.electronAPI.getCpuInfo(), window.electronAPI.getRamInfo()]);
-          if (!alive) return;
-          setCpuInfo(cpu);
-          setRamInfo(ram);
-        }
-      } catch {}
-    };
-    const iv = setInterval(tick, 3000);
-    return () => { alive = false; clearInterval(iv); };
-  }, [currentPage]);
-
   const renderPage = () => {
     switch (currentPage) {
       case 'dashboard':

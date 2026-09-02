@@ -1,8 +1,8 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { Cpu, HardDrive, MemoryStick, MonitorSmartphone, Wifi, Info, RefreshCw, FileText, Trash2, Loader } from 'lucide-react';
+import React, { useState, useCallback } from 'react';
+import { Cpu, HardDrive, MemoryStick, MonitorSmartphone, Wifi, Info, RefreshCw, FileText } from 'lucide-react';
 import { ToolCard, ProgressBar, SystemCard } from '../components';
 import { CpuInfo, RamInfo, DiskInfo, GpuInfo, WindowsInfo, NetworkInfo } from '../types';
-import { formatBytes, formatFrequency, formatUptime } from '../utils';
+import { formatBytes, formatFrequency } from '../utils';
 import { useLogs } from '../context/LogContext';
 
 interface DashboardProps {
@@ -103,37 +103,14 @@ export function Dashboard({
     setGeneratingReport(false);
   }, [cpuInfo, ramInfo, diskInfo, gpuInfo, windowsInfo, networkInfo, addLog]);
 
-  // Limpiar RAM (purga la standby list del sistema via NtSetSystemInformation)
-  const [clearingRAM, setClearingRAM] = useState(false);
-  const clearRAM = useCallback(async () => {
-    setClearingRAM(true);
-    addLog('RAM', 'Limpiando', 'Liberando memoria standby (requiere admin)...', 'info');
-    try {
-      const r = await window.electronAPI.clearRam();
-      if (r.success) {
-        addLog('RAM', 'Limpiando', 'Memoria standby liberada correctamente', 'success');
-      } else {
-        addLog('RAM', 'Error', r.output || 'No se pudo liberar la memoria', 'error');
-      }
-    } catch (err) {
-      addLog('RAM', 'Error', String(err), 'error');
-    }
-    setClearingRAM(false);
-    // Refrescar info de RAM
-    onRefresh();
-  }, [addLog, onRefresh]);
 
-  const refreshSystemInfo = useCallback(() => {
-    addLog('Sistema', 'Actualizando', 'Refrescando información del sistema...', 'info');
-    onRefresh();
-  }, [addLog, onRefresh]);
 
   return (
     <div className="space-y-6 animate-fade-in">
       <div className="flex items-center justify-between gap-4">
         <div>
           <h1 className="text-[20px] font-bold tracking-tight text-slate-900">Centro de Diagnóstico</h1>
-          <p className="text-[13px] text-slate-500 mt-1">Información del sistema en tiempo real · CPU/RAM en vivo cada 3s</p>
+          <p className="text-[13px] text-slate-500 mt-1">Información estática del hardware y sistema</p>
         </div>
         <div className="flex gap-2 shrink-0">
           <button
@@ -156,7 +133,7 @@ export function Dashboard({
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-        {/* CPU Card */}
+        {/* CPU Card - solo info estática */}
         <ToolCard
           icon={<Cpu size={20} />}
           title="CPU / Procesador"
@@ -172,28 +149,25 @@ export function Dashboard({
           {cpuInfo && (
             <div className="space-y-3">
               <div className="grid grid-cols-2 gap-2">
-                <SystemCard title="Uso" value={`${cpuInfo.usage}%`} icon={<Cpu size={12} />} />
                 <SystemCard title="Núcleos" value={`${cpuInfo.cores}`} subtitle={`${cpuInfo.logicalCores} hilos`} />
-                <SystemCard title="Frecuencia" value={formatFrequency(cpuInfo.speed * 1000)} />
-                <SystemCard title="Máxima" value={formatFrequency(cpuInfo.maxSpeed * 1000)} />
+                <SystemCard title="Frecuencia base" value={formatFrequency(cpuInfo.speed * 1000)} />
+                <SystemCard title="Frecuencia máx." value={formatFrequency(cpuInfo.maxSpeed * 1000)} />
+                <SystemCard title="Fabricante" value={cpuInfo.manufacturer} />
               </div>
-              <ProgressBar value={cpuInfo.usage} />
-              {cpuInfo.temperature !== null && (
-                <div className="text-[10px] text-slate-500">
-                  Temperatura: <span className="text-slate-900">{cpuInfo.temperature}°C</span>
-                </div>
-              )}
+              <div className="text-[10px] text-slate-500 pt-1 border-t border-slate-100">
+                {cpuInfo.model}
+              </div>
             </div>
           )}
         </ToolCard>
 
-        {/* RAM Card */}
+        {/* RAM Card - solo info estática */}
         <ToolCard
           icon={<MemoryStick size={20} />}
           title="Memoria RAM"
           description={ramInfo ? `${formatBytes(ramInfo.total)} total` : 'Cargando...'}
-          status={ramInfo ? (ramInfo.percentage > 80 ? 'warning' : 'ok') : 'info'}
-          statusText={ramInfo ? `${ramInfo.percentage}% uso` : 'Cargando'}
+          status={ramInfo ? 'ok' : 'info'}
+          statusText={ramInfo ? `${ramInfo.moduleCount} módulo(s)` : 'Cargando'}
           accentColor="green"
           primaryAction="Diagnosticar"
           secondaryAction="Información"
@@ -202,35 +176,18 @@ export function Dashboard({
             <div className="space-y-3">
               <div className="grid grid-cols-2 gap-2">
                 <SystemCard title="Total" value={formatBytes(ramInfo.total)} />
-                <SystemCard title="Disponible" value={formatBytes(ramInfo.free)} />
-                <SystemCard title="Utilizada" value={formatBytes(ramInfo.used)} />
                 <SystemCard title="Módulos" value={`${ramInfo.moduleCount}`} />
               </div>
-              <ProgressBar value={ramInfo.percentage} />
               {ramInfo.modules.length > 0 && (
-                <div className="text-[10px] text-slate-500">
+                <div className="text-[10px] text-slate-500 space-y-1 pt-2 border-t border-slate-100">
                   {ramInfo.modules.map((m, i) => (
-                    <div key={i}>Módulo {i + 1}: {formatBytes(m.capacity)} - {m.speed}MHz</div>
+                    <div key={i} className="flex justify-between">
+                      <span>Módulo {i + 1}: {formatBytes(m.capacity)}</span>
+                      <span>{m.speed}MHz {m.manufacturer ? `· ${m.manufacturer}` : ''}</span>
+                    </div>
                   ))}
                 </div>
               )}
-              <div className="flex gap-2 pt-2 border-t border-slate-200">
-                <button
-                  onClick={clearRAM}
-                  disabled={clearingRAM}
-                  className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 bg-amber-500 hover:bg-amber-600 text-white text-white text-xs font-medium rounded-lg transition-all duration-200 disabled:opacity-50"
-                >
-                  {clearingRAM ? <Loader size={13} className="animate-spin" /> : <Trash2 size={13} />}
-                  {clearingRAM ? 'Limpiando...' : 'Liberar RAM'}
-                </button>
-                <button
-                  onClick={refreshSystemInfo}
-                  className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 text-xs font-medium rounded-lg transition-all duration-200"
-                >
-                  <RefreshCw size={13} />
-                  Actualizar
-                </button>
-              </div>
             </div>
           )}
         </ToolCard>
