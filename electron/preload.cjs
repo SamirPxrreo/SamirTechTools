@@ -59,6 +59,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   appendLog: (entry) => ipcRenderer.invoke('append-log', entry),
   defenderTool: (action) => ipcRenderer.invoke('defender-tool', action),
   clearRam: () => ipcRenderer.invoke('clear-ram'),
+  selectDirectory: (options) => ipcRenderer.invoke('select-directory', options),
+  createRestorePoint: (desc) => ipcRenderer.invoke('create-restore-point', desc),
   onDownloadProgress: (callback) => {
     const l = (event, data) => callback(data);
     ipcRenderer.on('download-progress', l);

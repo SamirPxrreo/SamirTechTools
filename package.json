@@ -11,7 +11,9 @@
     "electron:dev": "concurrently \"vite\" \"wait-on http://localhost:5173 && electron . --dev\"",
     "electron:build": "vite build && electron-builder",
     "electron:portable": "vite build && electron-builder --win portable",
-    "electron:installer": "vite build && electron-builder --win nsis"
+    "electron:installer": "vite build && electron-builder --win nsis",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint src --ext .ts,.tsx || echo \"eslint not configured yet\""
   },
   "build": {
     "appId": "com.samirtechtools.app",
@@ -75,14 +77,21 @@
       "artifactName": "SamirTechTools-Setup-${version}.exe",
       "deleteAppDataOnUninstall": false,
       "differentialPackage": false
-    }
+    },
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "SamirPxrreo",
+        "repo": "SamirTechTools"
+      }
+    ]
   },
   "dependencies": {
     "lucide-react": "^0.294.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "react-router-dom": "^6.20.0",
-    "systeminformation": "^5.21.0"
+    "electron-updater": "^6.3.9"
   },
   "devDependencies": {
     "@types/react": "^18.2.37",

@@ -5,10 +5,18 @@ import { useLogs } from '../context/LogContext';
 import { DownloadProgress } from '../types';
 import { PATHS, OFFICE, TOOLS } from '../config/constants';
 
-const OFFICE_DIR = PATHS.OFFICE_DIR;
+const DEFAULT_OFFICE_DIR = PATHS.OFFICE_DIR;
 const SETUP_URL = OFFICE.SETUP_URL;
 const onlineVersions = [...OFFICE.ONLINE_VERSIONS];
 const offlineVersions = [...OFFICE.OFFLINE_VERSIONS];
+
+async function askOfficeDir(title: string, fallback: string) {
+  try {
+    const res = await window.electronAPI.selectDirectory({ title, defaultPath: fallback });
+    if (res.canceled || !res.path) return null;
+    return res.path;
+  } catch { return null; }
+}
 
 export function OfficePage() {
   const { addLog } = useLogs();
@@ -45,6 +53,9 @@ export function OfficePage() {
 
   // ONLINE INSTALL
   const startOnlineInstall = async (version: typeof onlineVersions[0]) => {
+    const chosenDir = await askOfficeDir(`¿Dónde instalar ${version.name}?`, DEFAULT_OFFICE_DIR);
+    if (!chosenDir) return;
+    const OFFICE_DIR = chosenDir;
     setConfirmModal({
       open: true,
       title: `Instalar ${version.name} (Online)`,
@@ -106,6 +117,9 @@ export function OfficePage() {
 
   // OFFICE 2019 DIRECTO (c2rsetup sin XML)
   const startOffice2019Direct = async () => {
+    const chosenDir = await askOfficeDir('¿Dónde descargar Office 2019?', DEFAULT_OFFICE_DIR);
+    if (!chosenDir) return;
+    const dir = chosenDir;
     const o = OFFICE.OFFICE_2019_DIRECT;
     setConfirmModal({
       open: true,
@@ -117,7 +131,6 @@ export function OfficePage() {
         setOutput('');
         setProgress(null);
         try {
-          const dir = OFFICE_DIR;
           await window.electronAPI.runCommand(`if not exist "${dir}" mkdir "${dir}"`);
           const filePath = `${dir}\\${o.fileName}`;
           setDownloadStatus(`Descargando ${o.fileName}...`);
@@ -420,7 +433,7 @@ export function OfficePage() {
                 <p className="text-[11px] text-dark-400 mt-1">
                   Se descargará automáticamente <code className="bg-dark-700 px-1 rounded">setup.exe</code> y{' '}
                   <code className="bg-dark-700 px-1 rounded">Configuration.xml</code> a{' '}
-                  <code className="bg-dark-700 px-1 rounded">{OFFICE_DIR}\</code>, luego se ejecutará el instalador con permisos de administrador.
+                  <code className="bg-dark-700 px-1 rounded">{DEFAULT_OFFICE_DIR}\</code>, luego se ejecutará el instalador con permisos de administrador.
                 </p>
               </div>
             </div>

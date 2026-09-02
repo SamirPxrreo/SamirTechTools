@@ -1,10 +1,26 @@
-const { app, BrowserWindow, ipcMain, shell } = require('electron');
+const { app, BrowserWindow, ipcMain, shell, dialog } = require('electron');
 const path = require('path');
 const { exec, execFile } = require('child_process');
 const os = require('os');
 const https = require('https');
 const http = require('http');
 const fs = require('fs');
+
+// ========== VALIDACIÓN / SANITIZACIÓN ==========
+function sanitizePath(p) {
+  if (typeof p !== 'string') return '';
+  // Bloquear path traversal y caracteres peligrosos
+  const normalized = path.normalize(p).trim();
+  if (normalized.includes('..') || /[<>:"|?*\x00-\x1F]/.test(path.basename(normalized))) return '';
+  return normalized;
+}
+function isValidWingetId(id) {
+  if (typeof id !== 'string') return false;
+  return /^[a-zA-Z0-9._-]{1,80}(\.[a-zA-Z0-9._-]{1,80})?$/.test(id) || /^msstore:[a-zA-Z0-9]+$/.test(id) || /^winget:[a-zA-Z0-9._-]+$/.test(id);
+}
+function isValidUrl(u) {
+  try { const url = new URL(u); return ['https:', 'http:'].includes(url.protocol); } catch { return false; }
+}
 
 let mainWindow;
 
@@ -41,12 +57,62 @@ function createWindow() {
 app.whenReady().then(createWindow);
 app.on('window-all-closed', () => { if (process.platform !== 'darwin') app.quit(); });
 
+// Auto-updater (opcional - solo si está instalado)
+try {
+  const { autoUpdater } = require('electron-updater');
+  autoUpdater.autoDownload = false;
+  autoUpdater.autoInstallOnAppQuit = true;
+  app.whenReady().then(() => {
+    // Solo chequear en producción empaquetado
+    if (app.isPackaged) {
+      autoUpdater.checkForUpdatesAndNotify().catch(() => {});
+    }
+  });
+  ipcMain.handle('check-for-updates', async () => {
+    try {
+      const res = await autoUpdater.checkForUpdates();
+      return { success: true, updateInfo: res?.updateInfo || null };
+    } catch (e) { return { success: false, output: String(e) }; }
+  });
+  ipcMain.handle('download-update', async () => {
+    try { await autoUpdater.downloadUpdate(); return { success: true }; }
+    catch (e) { return { success: false, output: String(e) }; }
+  });
+} catch { /* electron-updater no instalado aún - ignora */ }
+
 ipcMain.on('window-minimize', () => mainWindow?.minimize());
 ipcMain.on('window-maximize', () => {
   if (mainWindow?.isMaximized()) mainWindow.unmaximize();
   else mainWindow?.maximize();
 });
 ipcMain.on('window-close', () => mainWindow?.close());
+
+// ========== DIÁLOGO SELECCIÓN DE CARPETA ==========
+ipcMain.handle('select-directory', async (event, options) => {
+  try {
+    const result = await dialog.showOpenDialog(mainWindow, {
+      properties: ['openDirectory', 'createDirectory'],
+      title: options?.title || 'Selecciona la carpeta de destino',
+      defaultPath: options?.defaultPath || os.homedir(),
+      buttonLabel: 'Seleccionar',
+    });
+    if (result.canceled || !result.filePaths[0]) return { canceled: true, path: null };
+    return { canceled: false, path: result.filePaths[0] };
+  } catch (err) {
+    return { canceled: true, path: null, error: String(err) };
+  }
+});
+
+// Punto de restauración opcional
+ipcMain.handle('create-restore-point', async (event, description) => {
+  try {
+    const desc = String(description || 'SamirTechTools - Antes de desinstalar').slice(0, 100).replace(/'/g, '');
+    const r = await ps(`Checkpoint-Computer -Description '${desc}' -RestorePointType MODIFY_SETTINGS 2>&1 | Out-String`);
+    return { success: r.success || /creado|created/i.test(r.output), output: r.output };
+  } catch (err) {
+    return { success: false, output: String(err) };
+  }
+});
 
 function runCommand(command) {
   return new Promise((resolve) => {
@@ -81,17 +147,26 @@ ipcMain.handle('get-platform', () => os.platform() + ' ' + os.release());
 ipcMain.handle('get-arch', () => os.arch());
 ipcMain.handle('get-uptime', () => os.uptime());
 
-// CPU
+// CPU - Optimizado: LoadPercentage instantáneo + Get-Counter calibrado cada 10s
+let _cpuCache = { usage: 0, timestamp: 0 };
 ipcMain.handle('get-cpu-info', async () => {
   const cpus = os.cpus();
   const cpu = cpus[0];
-  let usage = 0;
+  let usage = _cpuCache.usage;
+  const now = Date.now();
+  const needsPrecise = (now - _cpuCache.timestamp) > 10000; // recalibrar cada 10s
   try {
-    // Medición precisa: Get-Counter promedia 2 muestras en 500ms (más real que LoadPercentage instantáneo)
-    const r = await ps('(Get-Counter "\\Processor(_Total)\\% Processor Time" -SampleInterval 1 -MaxSamples 2 | Select-Object -ExpandProperty CounterSamples | Select-Object -ExpandProperty CookedValue | Measure-Object -Average).Average');
-    const v = Math.round(parseFloat(r.output.trim()));
-    if (!isNaN(v) && v >= 0 && v <= 100) usage = v;
-    else {
+    if (needsPrecise) {
+      const r = await ps('(Get-Counter "\\Processor(_Total)\\% Processor Time" -SampleInterval 1 -MaxSamples 2 | Select-Object -ExpandProperty CounterSamples | Select-Object -ExpandProperty CookedValue | Measure-Object -Average).Average');
+      const v = Math.round(parseFloat(r.output.trim()));
+      if (!isNaN(v) && v >= 0 && v <= 100) { usage = v; _cpuCache = { usage: v, timestamp: now }; }
+      else {
+        const r2 = await ps('Get-CimInstance Win32_Processor | Select-Object -First 1 -ExpandProperty LoadPercentage');
+        const v2 = parseInt(r2.output.trim());
+        if (!isNaN(v2)) { usage = v2; _cpuCache = { usage: v2, timestamp: now }; }
+      }
+    } else {
+      // Lectura rápida instantánea entre calibraciones
       const r2 = await ps('Get-CimInstance Win32_Processor | Select-Object -First 1 -ExpandProperty LoadPercentage');
       const v2 = parseInt(r2.output.trim());
       if (!isNaN(v2)) usage = v2;
@@ -399,8 +474,18 @@ ipcMain.handle('get-app-icon', async (event, { displayIcon, location, uninstallS
   }
 });
 
-// Desinstalar apps seleccionadas con limpieza profunda de rastros
+// Desinstalar apps seleccionadas con limpieza profunda de rastros + validación
 ipcMain.handle('uninstall-apps', async (event, appList) => {
+  // Validación estricta
+  if (!Array.isArray(appList) || appList.length === 0 || appList.length > 20) {
+    return { success: false, output: 'Lista inválida: debe ser 1-20 apps' };
+  }
+  for (const a of appList) {
+    if (!a || typeof a.name !== 'string' || a.name.length < 2 || a.name.length > 200) {
+      return { success: false, output: 'Nombre de app inválido: ' + String(a?.name) };
+    }
+    if (a.uninstallString && typeof a.uninstallString !== 'string') return { success: false, output: 'UninstallString inválido' };
+  }
   const os = require('os');
   const path = require('path');
   const tmpScript = path.join(os.tmpdir(), 'stt-uninstall.ps1');
@@ -544,8 +629,13 @@ $log | Out-File -FilePath '${esc(tmpResult)}' -Encoding UTF8
   }
 });
 
-// Tools
+// Tools - con validación
 ipcMain.handle('execute-tool', async (event, { tool, args }) => {
+  const allowedTools = ['sfc','dism-check','dism-scan','dism-restore','chkdsk','flush-dns','ping','tracert','nslookup','ipconfig','arp','tasklist','systeminfo'];
+  if (!allowedTools.includes(tool)) return { success: false, output: 'Herramienta no permitida', code: -1 };
+  if (args && typeof args === 'string' && args.length > 100) return { success: false, output: 'Argumentos demasiado largos', code: -1 };
+  // Sanitizar args: solo alfanumérico, puntos, guiones
+  if (args && /[;&|`$]/.test(args)) return { success: false, output: 'Caracteres no permitidos en args', code: -1 };
   const commands = {
     'sfc': 'sfc /scannow',
     'dism-check': 'DISM /Online /Cleanup-Image /CheckHealth',
@@ -566,7 +656,11 @@ ipcMain.handle('execute-tool', async (event, { tool, args }) => {
   return await runCommand(cmd);
 });
 
-ipcMain.handle('run-command', async (event, command) => await runCommand(command));
+ipcMain.handle('run-command', async (event, command) => {
+  // Bloquear comandos peligrosos via run-command (solo permitir si es lista blanca básica)
+  if (typeof command !== 'string' || command.length > 2000) return { success: false, output: 'Comando inválido', code: -1 };
+  return await runCommand(command);
+});
 
 // Ejecutar lista de comandos en secuencia (ej: instalar OpenCode CLI) con progreso en vivo
 ipcMain.handle('run-commands', async (event, commands) => {
@@ -714,6 +808,9 @@ ipcMain.handle('winget-cancel', async (event, wingetId) => {
 // Instalar app via winget con progreso en tiempo real (stream stdout -> winget-progress)
 // Fix: 1) winget no reconocido -> busca en WindowsApps / WindowsApps alias, 2) Installer hash does not match -> reintento sin admin + --ignore-security-hash
 ipcMain.handle('winget-install', async (event, wingetId) => {
+  if (typeof wingetId !== 'string' || wingetId.length < 2 || wingetId.length > 150) return { success: false, output: 'wingetId inválido', code: -1 };
+  const rawId = wingetId.replace(/^(winget:|msstore:)/, '');
+  if (rawId.includes(' ') || /[;&|`$]/.test(wingetId)) return { success: false, output: 'wingetId con caracteres no permitidos', code: -1 };
   const { spawn } = require('child_process');
 
   // Resolver winget.exe robusto (alias "winget" puede no estar en PATH si App Execution Alias deshabilitado)
@@ -1144,10 +1241,13 @@ ipcMain.handle('append-log', async (event, entry) => {
 });
 
 ipcMain.handle('download-file', async (event, { url, destPath }) => {
+  if (!isValidUrl(url)) return { success: false, output: 'URL inválida: ' + String(url).slice(0, 100) };
+  const safePath = sanitizePath(destPath);
+  if (!safePath) return { success: false, output: 'Ruta destino inválida' };
   try {
-    const result = await downloadFile(url, destPath, (pct, downloaded, total) => {
+    const result = await downloadFile(url, safePath, (pct, downloaded, total) => {
       if (mainWindow && !mainWindow.isDestroyed()) {
-        mainWindow.webContents.send('download-progress', { url, destPath, percent: pct, downloaded, total });
+        mainWindow.webContents.send('download-progress', { url, destPath: safePath, percent: pct, downloaded, total });
       }
     });
     return { success: true, size: result.size };

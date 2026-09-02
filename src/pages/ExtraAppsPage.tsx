@@ -138,7 +138,9 @@ export function ExtraAppsPage() {
               setOutput((r.output || '') + '\n\nTip: Si es error de hash, prueba el Chrome directo de esta misma seccion o reintenta winget con --ignore-security-hash en terminal sin admin.');
             }
           } else {
-            const dlDir = 'C:\\ExtraApps';
+            const dirRes = await window.electronAPI.selectDirectory({ title: `¿Dónde guardar ${app.name}?`, defaultPath: 'C:\\ExtraApps' });
+            if (dirRes.canceled || !dirRes.path) { setLoading(false); return; }
+            const dlDir = dirRes.path;
             await window.electronAPI.runCommand(`if not exist "${dlDir}" mkdir "${dlDir}"`);
             const dest = `${dlDir}\\${app.fileName!}`;
             addLog('Extra Apps', app.name, `Descargando a ${dest}`, 'info');
@@ -147,7 +149,7 @@ export function ExtraAppsPage() {
               const msg = String(r.output || '');
               const isMediaFire = app.url!.includes('mediafire.com') || msg.toLowerCase().includes('mediafire') || msg.toLowerCase().includes('pagina html');
               if (isMediaFire) {
-                setOutput(`Error: ${msg}\n\nMediaFire no permite descarga directa automatica (requiere clic en "Download" dentro de la pagina).\nPara descarga automatica: sube el archivo a un host con link directo (recomendados: catbox.moe, pixeldrain.com, archive.org, GitHub Releases, Google Drive con link directo, o tu propio hosting/S3) y actualiza la URL.\nPor ahora se abrira el navegador para descarga manual — coloca el archivo en C:\\ExtraApps.`);
+                setOutput(`Error: ${msg}\n\nMediaFire no permite descarga directa automatica (requiere clic en "Download" dentro de la pagina).\nPara descarga automatica: sube el archivo a un host con link directo (recomendados: catbox.moe, pixeldrain.com, archive.org, GitHub Releases, Google Drive con link directo, o tu propio hosting/S3) y actualiza la URL.\nPor ahora se abrira el navegador para descarga manual — coloca el archivo en ${dlDir}.`);
                 addLog('Extra Apps', app.name, 'Link MediaFire expirado - abriendo navegador', 'error');
                 window.electronAPI.openExternal(app.url!);
                 window.electronAPI.openPath(dlDir);

@@ -171,6 +171,8 @@ export interface ElectronAPI {
   appendLog: (entry: { timestamp: string; tool: string; action: string; result: string; level: string }) => Promise<{ success: boolean; output?: string }>;
   defenderTool: (action: 'open' | 'disable' | 'enable' | 'status') => Promise<{ success: boolean; output: string }>;
   clearRam: () => Promise<{ success: boolean; output: string }>;
+  selectDirectory: (options?: { title?: string; defaultPath?: string }) => Promise<{ canceled: boolean; path: string | null; error?: string }>;
+  createRestorePoint: (description?: string) => Promise<{ success: boolean; output: string }>;
   onDownloadProgress: (callback: (data: DownloadProgress) => void) => () => void;
   onWingetProgress: (callback: (data: { wingetId: string; chunk: string; isErr: boolean }) => void) => () => void;
   onWingetProgressPct: (callback: (data: { wingetId: string; percent?: number; phase?: string }) => void) => () => void;

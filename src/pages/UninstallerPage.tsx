@@ -29,6 +29,7 @@ export function UninstallerPage() {
   const [uninstalling, setUninstalling] = useState(false);
   const [output, setOutput] = useState('');
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const [createRestore, setCreateRestore] = useState(true);
 
   const loadApps = useCallback(async () => {
     setLoading(true);
@@ -126,6 +127,15 @@ export function UninstallerPage() {
     setOutput('');
 
     const toRemove = apps.filter(a => selected.has(a.name));
+    if (createRestore) {
+      setOutput('Creando punto de restauración...\n');
+      addLog('Desinstalador', 'Restauración', 'Creando punto de restauración', 'info');
+      try {
+        const rp = await window.electronAPI.createRestorePoint(`SamirTechTools - Antes de desinstalar ${toRemove.length} apps`);
+        setOutput(prev => prev + (rp.output || '') + '\n');
+        addLog('Desinstalador', rp.success ? 'Restauración OK' : 'Restauración fallo', rp.output || '', rp.success ? 'success' : 'warning');
+      } catch (e) { setOutput(prev => prev + String(e) + '\n'); }
+    }
     addLog('Desinstalador', 'Iniciando', `Desinstalando ${toRemove.length} aplicaciones`, 'info');
 
     try {
@@ -207,6 +217,12 @@ export function UninstallerPage() {
           Actualizar
         </button>
       </div>
+
+      {/* Opción punto de restauración */}
+      <label className="flex items-center gap-2 px-1 text-xs text-dark-300 cursor-pointer select-none">
+        <input type="checkbox" checked={createRestore} onChange={e => setCreateRestore(e.target.checked)} className="accent-primary-500" />
+        Crear punto de restauración antes de desinstalar (recomendado)
+      </label>
 
       {/* Botón desinstalar */}
       <div className="flex items-center justify-between bg-dark-800/50 border border-dark-700 rounded-lg p-4">
