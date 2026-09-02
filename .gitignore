@@ -1,6 +1,10 @@
-node_modules/
+﻿node_modules/
 dist/
 release/
 *.log
 # dControl se mantiene en el repo (requerido para Defender Control)
 !resources/defender-control/
+
+# Ejecutables descargados (van por Release, no en repo)
+*.exe
+!resources/defender-control/dControl.exe
