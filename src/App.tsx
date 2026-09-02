@@ -34,61 +34,74 @@ function AppContent() {
   const loadSystemInfo = useCallback(async () => {
     setLoading(true);
     addLog('Sistema', 'Iniciando diagnóstico', 'Obteniendo información del equipo...', 'info');
-
     try {
-      const [name, user, admin, cpu, ram, disk, gpu, win, net] = await Promise.all([
+      // TIER 1 - rápido (CPU/RAM nativo sin PowerShell, datos básicos)
+      const [name, user, admin, cpu, ram] = await Promise.all([
         window.electronAPI.getComputerName(),
         window.electronAPI.getUsername(),
         window.electronAPI.checkAdmin(),
         window.electronAPI.getCpuInfo(),
         window.electronAPI.getRamInfo(),
-        window.electronAPI.getDiskInfo(),
-        window.electronAPI.getGpuInfo(),
-        window.electronAPI.getWindowsInfo(),
-        window.electronAPI.getNetworkInfo(),
       ]);
-
       setComputerName(name);
       setUsername(user);
       setIsAdmin(admin);
       setCpuInfo(cpu);
       setRamInfo(ram);
-      setDiskInfo(disk);
-      setGpuInfo(gpu);
-      setWindowsInfo(win);
-      setNetworkInfo(net);
-
       addLog('Sistema', 'CPU', `${cpu.model} detectado`, 'success');
       addLog('Sistema', 'RAM', `${(ram.total / (1024 * 1024 * 1024)).toFixed(1)} GB detectados`, 'success');
-      addLog('Sistema', 'GPU', gpu.length > 0 ? gpu[0].name : 'No detectada', gpu.length > 0 ? 'success' : 'warning');
-      addLog('Sistema', 'Windows', win.caption || 'No detectado', 'success');
-      addLog('Sistema', 'Red', net.ip ? `IP: ${net.ip}` : 'No detectada', net.ip ? 'success' : 'warning');
-      addLog('Sistema', 'Diagnóstico completado', 'Todo el equipo analizado', 'success');
+      setLoading(false);
+
+      // TIER 2 - pesado en background (disco/GPU/Windows/red) sin bloquear UI
+      Promise.all([
+        window.electronAPI.getDiskInfo(),
+        window.electronAPI.getGpuInfo(),
+        window.electronAPI.getWindowsInfo(),
+        window.electronAPI.getNetworkInfo(),
+      ]).then(([disk, gpu, win, net]) => {
+        setDiskInfo(disk);
+        setGpuInfo(gpu);
+        setWindowsInfo(win);
+        setNetworkInfo(net);
+        addLog('Sistema', 'GPU', gpu.length > 0 ? gpu[0].name : 'No detectada', gpu.length > 0 ? 'success' : 'warning');
+        addLog('Sistema', 'Windows', win.caption || 'No detectado', 'success');
+        addLog('Sistema', 'Red', net.ip ? `IP: ${net.ip}` : 'No detectada', net.ip ? 'success' : 'warning');
+        addLog('Sistema', 'Diagnóstico completado', 'Todo el equipo analizado', 'success');
+      }).catch((err) => {
+        addLog('Sistema', 'Error en diagnóstico (tier 2)', String(err), 'warning');
+      });
     } catch (err) {
       addLog('Sistema', 'Error en diagnóstico', String(err), 'error');
+      setLoading(false);
     }
-
-    setLoading(false);
   }, [addLog]);
 
   useEffect(() => {
     loadSystemInfo();
   }, []);
 
-  // Polling en vivo para CPU/RAM cada 2s (solo en dashboard para no saturar)
+  // Polling liviano CPU/RAM cada 3s via getLiveStats (0 PowerShell) - pausa si pestaña oculta o no está en dashboard
   useEffect(() => {
     if (currentPage !== 'dashboard') return;
-    const iv = setInterval(async () => {
+    let alive = true;
+    const tick = async () => {
+      if (document.hidden) return;
       try {
-        const [cpu, ram] = await Promise.all([
-          window.electronAPI.getCpuInfo(),
-          window.electronAPI.getRamInfo(),
-        ]);
-        setCpuInfo(cpu);
-        setRamInfo(ram);
+        if (window.electronAPI.getLiveStats) {
+          const stats = await window.electronAPI.getLiveStats();
+          if (!alive) return;
+          setCpuInfo(stats.cpu);
+          setRamInfo((prev) => prev ? { ...prev, total: stats.ram.total, used: stats.ram.used, free: stats.ram.free, percentage: stats.ram.percentage } : { ...stats.ram, modules: [], moduleCount: 'N/A' });
+        } else {
+          const [cpu, ram] = await Promise.all([window.electronAPI.getCpuInfo(), window.electronAPI.getRamInfo()]);
+          if (!alive) return;
+          setCpuInfo(cpu);
+          setRamInfo(ram);
+        }
       } catch {}
-    }, 2000);
-    return () => clearInterval(iv);
+    };
+    const iv = setInterval(tick, 3000);
+    return () => { alive = false; clearInterval(iv); };
   }, [currentPage]);
 
   const renderPage = () => {

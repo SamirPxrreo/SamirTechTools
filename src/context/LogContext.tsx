@@ -23,7 +23,11 @@ export function LogProvider({ children }: { children: ReactNode }) {
       result,
       level,
     };
-    setLogs(prev => [...prev, entry]);
+    setLogs(prev => {
+      const next = [...prev, entry];
+      // Cap a 300 entradas para evitar fuga de memoria en sesiones largas
+      return next.length > 300 ? next.slice(-300) : next;
+    });
     if (window.electronAPI?.appendLog) {
       const now = new Date();
       window.electronAPI.appendLog({

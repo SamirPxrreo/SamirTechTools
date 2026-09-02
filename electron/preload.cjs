@@ -19,6 +19,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   getRamInfo: () => ipcRenderer.invoke('get-ram-info'),
   getDiskInfo: () => ipcRenderer.invoke('get-disk-info'),
   getGpuInfo: () => ipcRenderer.invoke('get-gpu-info'),
+  getLiveStats: () => ipcRenderer.invoke('get-live-stats'),
 
   // OS & Network
   getWindowsInfo: () => ipcRenderer.invoke('get-windows-info'),

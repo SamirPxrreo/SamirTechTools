@@ -147,43 +147,66 @@ ipcMain.handle('get-platform', () => os.platform() + ' ' + os.release());
 ipcMain.handle('get-arch', () => os.arch());
 ipcMain.handle('get-uptime', () => os.uptime());
 
-// CPU - Optimizado: LoadPercentage instantáneo + Get-Counter calibrado cada 10s
-let _cpuCache = { usage: 0, timestamp: 0 };
-ipcMain.handle('get-cpu-info', async () => {
+// ========== OPTIMIZACIÓN: CPU nativo sin PowerShell + caches estáticos ==========
+let _prevCpuTimes = null;
+// Inicializar baseline para que la primera lectura no sea 0
+(() => {
   const cpus = os.cpus();
-  const cpu = cpus[0];
-  let usage = _cpuCache.usage;
-  const now = Date.now();
-  const needsPrecise = (now - _cpuCache.timestamp) > 10000; // recalibrar cada 10s
-  try {
-    if (needsPrecise) {
-      const r = await ps('(Get-Counter "\\Processor(_Total)\\% Processor Time" -SampleInterval 1 -MaxSamples 2 | Select-Object -ExpandProperty CounterSamples | Select-Object -ExpandProperty CookedValue | Measure-Object -Average).Average');
-      const v = Math.round(parseFloat(r.output.trim()));
-      if (!isNaN(v) && v >= 0 && v <= 100) { usage = v; _cpuCache = { usage: v, timestamp: now }; }
-      else {
-        const r2 = await ps('Get-CimInstance Win32_Processor | Select-Object -First 1 -ExpandProperty LoadPercentage');
-        const v2 = parseInt(r2.output.trim());
-        if (!isNaN(v2)) { usage = v2; _cpuCache = { usage: v2, timestamp: now }; }
-      }
-    } else {
-      // Lectura rápida instantánea entre calibraciones
-      const r2 = await ps('Get-CimInstance Win32_Processor | Select-Object -First 1 -ExpandProperty LoadPercentage');
-      const v2 = parseInt(r2.output.trim());
-      if (!isNaN(v2)) usage = v2;
-    }
-  } catch {
-    try {
-      const r = await ps('Get-CimInstance Win32_Processor | Select-Object -First 1 -ExpandProperty LoadPercentage');
-      const v = parseInt(r.output.trim());
-      if (!isNaN(v)) usage = v;
-    } catch {}
-  }
-  let temp = null;
+  let idle = 0, total = 0;
+  for (const c of cpus) { for (const k in c.times) total += c.times[k]; idle += c.times.idle; }
+  _prevCpuTimes = { idle, total, ts: Date.now() };
+})();
+function getCpuUsageNative() {
+  const cpus = os.cpus();
+  let idle = 0, total = 0;
+  for (const c of cpus) { for (const k in c.times) total += c.times[k]; idle += c.times.idle; }
+  if (!_prevCpuTimes) { _prevCpuTimes = { idle, total, ts: Date.now() }; return 0; }
+  const idleDiff = idle - _prevCpuTimes.idle;
+  const totalDiff = total - _prevCpuTimes.total;
+  _prevCpuTimes = { idle, total, ts: Date.now() };
+  if (totalDiff === 0) return 0;
+  const usage = Math.round(100 - (100 * idleDiff / totalDiff));
+  return Math.max(0, Math.min(100, usage));
+}
+let _cpuTempCache = { value: null, ts: 0 };
+async function getCpuTempCached() {
+  if (Date.now() - _cpuTempCache.ts < 30000 && _cpuTempCache.value !== null) return _cpuTempCache.value;
   try {
     const r = await ps('Get-CimInstance MSAcpi_ThermalZoneTemperature -Namespace root/wmi | Select-Object -First 1 -ExpandProperty CurrentTemperature');
     const v = parseInt(r.output.trim());
-    if (!isNaN(v)) temp = Math.round((v - 2732) / 10);
+    if (!isNaN(v)) { const t = Math.round((v - 2732) / 10); _cpuTempCache = { value: t, ts: Date.now() }; return t; }
   } catch {}
+  return _cpuTempCache.value;
+}
+
+// Polling liviano: CPU + RAM sin PowerShell (usado por App.tsx cada 3s)
+ipcMain.handle('get-live-stats', async () => {
+  const cpus = os.cpus();
+  const cpu = cpus[0];
+  const usage = getCpuUsageNative();
+  const totalMem = os.totalmem();
+  const freeMem = os.freemem();
+  const usedMem = totalMem - freeMem;
+  return {
+    cpu: {
+      model: cpu.model.trim(),
+      manufacturer: cpu.model.includes('Intel') ? 'Intel' : cpu.model.includes('AMD') ? 'AMD' : 'Unknown',
+      cores: cpus.length,
+      logicalCores: cpus.length,
+      speed: cpu.speed,
+      maxSpeed: cpu.speed,
+      usage,
+      temperature: _cpuTempCache.value,
+    },
+    ram: { total: totalMem, used: usedMem, free: freeMem, percentage: Math.round((usedMem / totalMem) * 100) },
+  };
+});
+
+ipcMain.handle('get-cpu-info', async () => {
+  const cpus = os.cpus();
+  const cpu = cpus[0];
+  const usage = getCpuUsageNative();
+  const temp = await getCpuTempCached();
   return {
     model: cpu.model.trim(),
     manufacturer: cpu.model.includes('Intel') ? 'Intel' : cpu.model.includes('AMD') ? 'AMD' : 'Unknown',
@@ -196,26 +219,36 @@ ipcMain.handle('get-cpu-info', async () => {
   };
 });
 
-// RAM
+// RAM - módulos cacheados (no cambian en runtime)
+let _ramModulesCache = null;
+let _ramModulesTs = 0;
 ipcMain.handle('get-ram-info', async () => {
   const totalMem = os.totalmem();
   const freeMem = os.freemem();
   const usedMem = totalMem - freeMem;
-  let modules = [];
+  if (_ramModulesCache && Date.now() - _ramModulesTs < 600000) {
+    return { total: totalMem, used: usedMem, free: freeMem, percentage: Math.round((usedMem / totalMem) * 100), modules: _ramModulesCache, moduleCount: _ramModulesCache.length || 'N/A' };
+  }
+  let modules = _ramModulesCache || [];
   try {
     const r = await ps('Get-CimInstance Win32_PhysicalMemory | ForEach-Object { $_.Capacity + "|" + $_.Speed + "|" + $_.Manufacturer + "|" + $_.PartNumber }');
+    const parsed = [];
     for (const line of r.output.trim().split('\n')) {
       const p = line.split('|');
-      if (p.length >= 4) {
-        modules.push({ capacity: parseInt(p[0]) || 0, speed: parseInt(p[1]) || 0, manufacturer: (p[2] || '').trim(), partNumber: (p[3] || '').trim() });
+      if (p.length >= 4 && p[0].trim()) {
+        parsed.push({ capacity: parseInt(p[0]) || 0, speed: parseInt(p[1]) || 0, manufacturer: (p[2] || '').trim(), partNumber: (p[3] || '').trim() });
       }
     }
+    if (parsed.length) { _ramModulesCache = parsed; _ramModulesTs = Date.now(); modules = parsed; }
   } catch {}
   return { total: totalMem, used: usedMem, free: freeMem, percentage: Math.round((usedMem / totalMem) * 100), modules, moduleCount: modules.length || 'N/A' };
 });
 
-// Disk
+// Disk - cache 30s (físico casi estático, lógico cambia lento)
+let _diskCache = null;
+let _diskTs = 0;
 ipcMain.handle('get-disk-info', async () => {
+  if (_diskCache && Date.now() - _diskTs < 30000) return _diskCache;
   let physical = [];
   let logical = [];
   try {
@@ -236,11 +269,16 @@ ipcMain.handle('get-disk-info', async () => {
       }
     }
   } catch {}
-  return { physical, logical };
+  const result = { physical, logical };
+  if (physical.length || logical.length) { _diskCache = result; _diskTs = Date.now(); }
+  return result;
 });
 
-// GPU - VRAM real via registro en un solo PS (evita 5 spawns que causaban delay negro)
+// GPU - cache 10min (no cambia en runtime) - VRAM real via registro en un solo PS
+let _gpuCache = null;
+let _gpuTs = 0;
 ipcMain.handle('get-gpu-info', async () => {
+  if (_gpuCache && Date.now() - _gpuTs < 600000) return _gpuCache;
   let gpus = [];
   try {
     const script = `
@@ -280,11 +318,15 @@ foreach($g in $gpus){
       }
     }
   } catch {}
+  if (gpus.length) { _gpuCache = gpus; _gpuTs = Date.now(); }
   return gpus;
 });
 
-// Windows
+// Windows - cache 10min (no cambia)
+let _winCache = null;
+let _winTs = 0;
 ipcMain.handle('get-windows-info', async () => {
+  if (_winCache && Date.now() - _winTs < 600000) return _winCache;
   let info = {};
   try {
     const r = await ps('Get-CimInstance Win32_OperatingSystem | Select-Object Caption, Version, BuildNumber, OSArchitecture, InstallDate, LastBootUpTime, RegisteredUser | Format-List');
@@ -303,7 +345,6 @@ ipcMain.handle('get-windows-info', async () => {
         else if (key === 'RegisteredUser') info.registeredUser = val;
       }
     }
-    // Motherboard info
     const mb = await ps('Get-CimInstance Win32_BaseBoard | Select-Object Manufacturer, Product, Version, SerialNumber | Format-List');
     const mbLines = mb.output.trim().split('\n');
     for (const line of mbLines) {
@@ -318,33 +359,43 @@ ipcMain.handle('get-windows-info', async () => {
       }
     }
   } catch {}
+  if (info.caption) { _winCache = info; _winTs = Date.now(); }
   return info;
 });
 
-// Network
+// Network - 1 solo PS (antes 6 spawns) + ping con timeout corto + cache 30s
+let _netCache = null;
+let _netTs = 0;
 ipcMain.handle('get-network-info', async () => {
+  if (_netCache && Date.now() - _netTs < 30000) return _netCache;
   let info = {};
   try {
-    // Find adapter with default route (gateway)
-    const rGate = await ps('Get-NetRoute -DestinationPrefix "0.0.0.0/0" -ErrorAction SilentlyContinue | Select-Object -First 1 -ExpandProperty InterfaceIndex');
-    let ifIndex = rGate.output.trim();
-    if (!ifIndex) {
-      const rUp = await ps('Get-NetAdapter | Where-Object {$_.Status -eq "Up"} | Select-Object -First 1 -ExpandProperty InterfaceIndex');
-      ifIndex = rUp.output.trim();
+    const script = `
+$idx=(Get-NetRoute -DestinationPrefix "0.0.0.0/0" -ErrorAction SilentlyContinue | Select-Object -First 1 -ExpandProperty InterfaceIndex)
+if(-not $idx){ $idx=(Get-NetAdapter | Where-Object {$_.Status -eq "Up"} | Select-Object -First 1 -ExpandProperty InterfaceIndex) }
+if($idx){
+  $mac=(Get-NetAdapter -InterfaceIndex $idx -ErrorAction SilentlyContinue | Select-Object -First 1 -ExpandProperty MacAddress)
+  $ip=(Get-NetIPAddress -InterfaceIndex $idx -AddressFamily IPv4 -ErrorAction SilentlyContinue | Select-Object -First 1 -ExpandProperty IPAddress)
+  $gw=(Get-NetRoute -InterfaceIndex $idx -DestinationPrefix "0.0.0.0/0" -ErrorAction SilentlyContinue | Select-Object -First 1 -ExpandProperty NextHop)
+  $dns=(Get-DnsClientServerAddress -InterfaceIndex $idx -AddressFamily IPv4 -ErrorAction SilentlyContinue | Select-Object -First 1 -ExpandProperty ServerAddresses)
+  "$idx|$mac|$ip|$gw|$dns"
+} else { "|" }
+`;
+    const r = await ps(script);
+    const parts = r.output.trim().split('|');
+    if (parts.length >= 5) {
+      if (parts[1]?.trim()) info.mac = parts[1].trim();
+      if (parts[2]?.trim()) info.ip = parts[2].trim();
+      if (parts[3]?.trim()) info.gateway = parts[3].trim();
+      if (parts[4]?.trim()) info.dns = parts[4].trim();
     }
-    if (ifIndex) {
-      const rMac = await ps('Get-NetAdapter -InterfaceIndex ' + ifIndex + ' -ErrorAction SilentlyContinue | Select-Object -First 1 -ExpandProperty MacAddress');
-      if (rMac.output.trim()) info.mac = rMac.output.trim();
-      const rIp = await ps('Get-NetIPAddress -InterfaceIndex ' + ifIndex + ' -AddressFamily IPv4 -ErrorAction SilentlyContinue | Select-Object -First 1 -ExpandProperty IPAddress');
-      if (rIp.output.trim()) info.ip = rIp.output.trim();
-      const rGw = await ps('Get-NetRoute -InterfaceIndex ' + ifIndex + ' -DestinationPrefix "0.0.0.0/0" -ErrorAction SilentlyContinue | Select-Object -First 1 -ExpandProperty NextHop');
-      if (rGw.output.trim()) info.gateway = rGw.output.trim();
-      const rDns = await ps('Get-DnsClientServerAddress -InterfaceIndex ' + ifIndex + ' -AddressFamily IPv4 | Select-Object -First 1 -ExpandProperty ServerAddresses');
-      if (rDns.output.trim()) info.dns = rDns.output.trim();
-    }
-    const ping = await runCommand('ping -n 1 8.8.8.8');
-    info.internet = ping.success;
+    // Ping corto con timeout reducido (1s) y sin bloquear demasiado
+    try {
+      const ping = await runCommand('ping -n 1 -w 1000 8.8.8.8');
+      info.internet = ping.success;
+    } catch { info.internet = false; }
   } catch {}
+  _netCache = info; _netTs = Date.now();
   return info;
 });
 

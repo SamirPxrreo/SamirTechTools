@@ -133,7 +133,7 @@ export function Dashboard({
       <div className="flex items-center justify-between gap-4">
         <div>
           <h1 className="text-[20px] font-bold tracking-tight text-slate-900">Centro de Diagnóstico</h1>
-          <p className="text-[13px] text-slate-500 mt-1">Información del sistema en tiempo real · CPU/RAM en vivo cada 2s</p>
+          <p className="text-[13px] text-slate-500 mt-1">Información del sistema en tiempo real · CPU/RAM en vivo cada 3s</p>
         </div>
         <div className="flex gap-2 shrink-0">
           <button

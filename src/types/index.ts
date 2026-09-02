@@ -155,6 +155,7 @@ export interface ElectronAPI {
   getRamInfo: () => Promise<RamInfo>;
   getDiskInfo: () => Promise<DiskInfo>;
   getGpuInfo: () => Promise<GpuInfo[]>;
+  getLiveStats: () => Promise<{ cpu: CpuInfo; ram: RamInfo }>;
   getWindowsInfo: () => Promise<WindowsInfo>;
   getNetworkInfo: () => Promise<NetworkInfo>;
   getInstalledApps: (category: string) => Promise<InstalledApp[]>;
