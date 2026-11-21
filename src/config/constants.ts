@@ -3,7 +3,7 @@
 // Todas las URLs y rutas del sistema en un solo lugar
 // ============================================
 
-export const APP_VERSION = '1.0.0';
+export const APP_VERSION = '1.1.0';
 
 // --- Rutas del sistema ---
 export const PATHS = {

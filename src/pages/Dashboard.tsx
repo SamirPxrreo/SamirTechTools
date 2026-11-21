@@ -1,45 +1,44 @@
-import React, { useState, useCallback } from 'react';
-import { Cpu, HardDrive, MemoryStick, MonitorSmartphone, Wifi, Info, RefreshCw, FileText } from 'lucide-react';
-import { ToolCard, ProgressBar, SystemCard } from '../components';
+import React, { useState, useCallback, ReactNode } from 'react';
+import {
+  Cpu, HardDrive, MemoryStick, MonitorSmartphone, Wifi, WifiOff, RefreshCw, FileDown, Monitor,
+  CircuitBoard, Clock, Gauge, Sparkles,
+} from 'lucide-react';
+import { ProgressBar, Badge, Button, IconTile, KeyValue, EmptyState, cx } from '../components';
 import { CpuInfo, RamInfo, DiskInfo, GpuInfo, WindowsInfo, NetworkInfo } from '../types';
 import { formatBytes, formatFrequency } from '../utils';
 import { useLogs } from '../context/LogContext';
 
 interface DashboardProps {
+  computerName: string;
+  username: string;
   cpuInfo: CpuInfo | null;
   ramInfo: RamInfo | null;
   diskInfo: DiskInfo | null;
-  gpuInfo: GpuInfo[];
+  gpuInfo: GpuInfo[] | null;
   windowsInfo: WindowsInfo | null;
   networkInfo: NetworkInfo | null;
   onRefresh: () => void;
   loading: boolean;
+  loadingDetails: boolean;
+  lastScan: Date | null;
+}
+
+const shortCpu = (m: string) =>
+  m.replace(/\(R\)|\(TM\)|CPU|Processor|with Radeon Graphics|\d+-Core/gi, '').replace(/@.*$/, '').replace(/\s+/g, ' ').trim();
+
+function greeting() {
+  const h = new Date().getHours();
+  return h < 12 ? 'Buenos días' : h < 19 ? 'Buenas tardes' : 'Buenas noches';
 }
 
 export function Dashboard({
-  cpuInfo,
-  ramInfo,
-  diskInfo,
-  gpuInfo,
-  windowsInfo,
-  networkInfo,
-  onRefresh,
-  loading,
+  computerName, username, cpuInfo, ramInfo, diskInfo, gpuInfo, windowsInfo, networkInfo,
+  onRefresh, loading, loadingDetails, lastScan,
 }: DashboardProps) {
   const { addLog } = useLogs();
-  const [analyzing, setAnalyzing] = useState(false);
-
-  const handleAnalyze = useCallback(async () => {
-    setAnalyzing(true);
-    addLog('CPU', 'Análisis iniciado', 'Obteniendo información del procesador...', 'info');
-    onRefresh();
-    setTimeout(() => {
-      setAnalyzing(false);
-      addLog('CPU', 'Análisis completado', 'Información del procesador obtenida', 'success');
-    }, 2000);
-  }, [addLog, onRefresh]);
-
   const [generatingReport, setGeneratingReport] = useState(false);
+  const busy = loading || loadingDetails;
+  const neverScanned = !cpuInfo && !busy;
 
   const handleGenerateReport = useCallback(async () => {
     setGeneratingReport(true);
@@ -51,31 +50,34 @@ export function Dashboard({
         `       SamirTechTools - ${new Date().toLocaleString('es-MX')}`,
         '========================================',
         '',
+        `Equipo: ${f(computerName)}   Usuario: ${f(username)}`,
+        '',
         '--- SISTEMA ---',
         `Windows: ${f(windowsInfo?.caption)}`,
         `Versión: ${f(windowsInfo?.version)} (Build ${f(windowsInfo?.build)})`,
         `Arquitectura: ${f(windowsInfo?.architecture)}`,
         `Fecha de instalación: ${f(windowsInfo?.installDate)}`,
+        `Placa base: ${f(windowsInfo?.boardManufacturer)} ${windowsInfo?.boardProduct ?? ''}`,
         '',
         '--- CPU ---',
         `Procesador: ${f(cpuInfo?.model)} (${f(cpuInfo?.manufacturer)})`,
-        `Núcleos: ${f(cpuInfo?.cores)} físicos / ${f(cpuInfo?.logicalCores)} lógicos`,
-        `Velocidad: ${cpuInfo?.speed ? formatFrequency(cpuInfo.speed) : 'N/A'} (máx: ${cpuInfo?.maxSpeed ? formatFrequency(cpuInfo.maxSpeed) : 'N/A'})`,
+        `Hilos: ${f(cpuInfo?.logicalCores)}`,
+        `Velocidad: ${cpuInfo?.speed ? formatFrequency(cpuInfo.speed) : 'N/A'}`,
         '',
         '--- RAM ---',
-        `Total: ${ramInfo ? formatBytes(ramInfo.total * 1024 ** 3) : 'N/A'}`,
-        `Libre: ${ramInfo ? formatBytes(ramInfo.free * 1024 ** 3) : 'N/A'}`,
+        `Total: ${ramInfo ? formatBytes(ramInfo.total) : 'N/A'}`,
+        `Libre: ${ramInfo ? formatBytes(ramInfo.free) : 'N/A'}`,
         `Módulos instalados: ${f(ramInfo?.moduleCount)}`,
-        ...((ramInfo?.modules ?? []).map(m => `- ${formatBytes(m.capacity * 1024 ** 3)} @ ${m.speed}MHz (${f(m.manufacturer)})`)),
+        ...(ramInfo?.modules ?? []).map(m => `- ${formatBytes(m.capacity)} @ ${m.speed}MHz (${f(m.manufacturer)})`),
         '',
         '--- GPU ---',
-        ...gpuInfo.map(g => `- ${g.name} (${g.vram ? formatBytes(g.vram * 1024 ** 3) : 'VRAM N/A'}) - Driver ${f(g.driverVersion)}`),
+        ...(gpuInfo ?? []).map(g => `- ${g.name} (${g.vram ? formatBytes(g.vram) : 'VRAM N/A'}) - Driver ${f(g.driverVersion)}`),
         '',
         '--- DISCOS FÍSICOS ---',
-        ...(diskInfo?.physical ?? []).map(d => `- ${d.model}: ${formatBytes(d.size * 1024 ** 3)} (${d.mediaType}, ${d.interfaceType})`),
+        ...(diskInfo?.physical ?? []).map(d => `- ${d.model}: ${formatBytes(d.size)} (${d.mediaType}, ${d.interfaceType})`),
         '',
         '--- UNIDADES LÓGICAS ---',
-        ...(diskInfo?.logical ?? []).map(d => `- ${d.letter}: Total ${formatBytes(d.total * 1024 ** 3)}, Libre ${formatBytes(d.free * 1024 ** 3)} (${d.fileSystem})`),
+        ...(diskInfo?.logical ?? []).map(d => `- ${d.letter} Total ${formatBytes(d.total)}, Libre ${formatBytes(d.free)} (${d.fileSystem})`),
         '',
         '--- RED ---',
         `IP: ${f(networkInfo?.ip)}`,
@@ -87,218 +89,289 @@ export function Dashboard({
         '========================================',
       ].join('\n');
 
-      const username = await window.electronAPI.getUsername();
-      const desktopPath = `C:\\Users\\${username}\\Desktop`;
+      // Escritorio real del sistema (puede estar en D:\ u OneDrive); respaldo al clásico si no se puede resolver
+      const user = await window.electronAPI.getUsername();
+      const desktopPath = (await window.electronAPI.getPath('desktop')) || `C:\\Users\\${user}\\Desktop`;
       const fileName = `Reporte_Diagnostico_${new Date().toISOString().slice(0, 10)}.txt`;
       const r = await window.electronAPI.writeFile(`${desktopPath}\\${fileName}`, report);
-
-      if (r.success) {
-        addLog('Reporte', 'Generado', `Guardado en el Escritorio: ${fileName}`, 'success');
-      } else {
-        addLog('Reporte', 'Error', String(r.output), 'error');
-      }
+      if (r.success) addLog('Reporte', 'Generado', `Guardado en el Escritorio: ${fileName}`, 'success');
+      else addLog('Reporte', 'Error', String(r.output), 'error');
     } catch (err) {
       addLog('Reporte', 'Error', String(err), 'error');
     }
     setGeneratingReport(false);
-  }, [cpuInfo, ramInfo, diskInfo, gpuInfo, windowsInfo, networkInfo, addLog]);
+  }, [computerName, username, cpuInfo, ramInfo, diskInfo, gpuInfo, windowsInfo, networkInfo, addLog]);
 
+  // Agregados de almacenamiento
+  const totalDisk = diskInfo?.logical.reduce((s, d) => s + d.total, 0) ?? 0;
+  const freeDisk = diskInfo?.logical.reduce((s, d) => s + d.free, 0) ?? 0;
+  const diskPct = totalDisk ? ((totalDisk - freeDisk) / totalDisk) * 100 : 0;
+  const ramPct = ramInfo ? ramInfo.percentage : 0;
+  const mainGpu = gpuInfo?.[0];
 
+  if (neverScanned) {
+    return (
+      <div className="card">
+        <EmptyState
+          icon={<Gauge size={22} />}
+          title="Aún no se ha analizado este equipo"
+          description="El diagnóstico automático está desactivado en Ajustes. Ejecuta un análisis para ver el hardware y el sistema."
+          action={<Button variant="primary" icon={<RefreshCw size={15} />} onClick={onRefresh}>Analizar equipo</Button>}
+        />
+      </div>
+    );
+  }
 
   return (
-    <div className="space-y-6 animate-fade-in">
-      <div className="flex items-center justify-between gap-4">
-        <div>
-          <h1 className="text-[20px] font-bold tracking-tight text-slate-900">Centro de Diagnóstico</h1>
-          <p className="text-[13px] text-slate-500 mt-1">Información estática del hardware y sistema</p>
-        </div>
-        <div className="flex gap-2 shrink-0">
-          <button
-            onClick={handleGenerateReport}
-            disabled={generatingReport}
-            className="inline-flex items-center gap-2 px-4 py-2.5 bg-white border border-slate-200 text-slate-700 text-[13px] font-medium rounded-xl hover:bg-slate-50 hover:border-slate-300 transition-colors disabled:opacity-50 shadow-sm"
-          >
-            <FileText size={15} />
-            {generatingReport ? 'Generando...' : 'Reporte'}
-          </button>
-          <button
-            onClick={handleAnalyze}
-            disabled={analyzing}
-            className="inline-flex items-center gap-2 px-4 py-2.5 bg-slate-900 hover:bg-slate-800 text-white text-[13px] font-medium rounded-xl transition-colors disabled:opacity-50 shadow-sm"
-          >
-            <RefreshCw size={15} className={analyzing ? 'animate-spin' : ''} />
-            {analyzing ? 'Analizando...' : 'Analizar'}
-          </button>
+    <div className="space-y-5">
+      {/* Hero */}
+      <div className="card relative overflow-hidden p-6">
+        <div className="pointer-events-none absolute -top-24 -right-16 w-80 h-80 rounded-full bg-accent/20 blur-3xl" />
+        <div className="pointer-events-none absolute -bottom-32 right-40 w-72 h-72 rounded-full bg-violet-500/10 blur-3xl" />
+        <div className="relative flex items-end justify-between gap-6 flex-wrap">
+          <div className="min-w-0">
+            <p className="flex items-center gap-1.5 text-[12.5px] text-muted">
+              <Sparkles size={13} className="text-accent-fg" />
+              {greeting()}{username ? `, ${username}` : ''}
+            </p>
+            <h1 className="text-[28px] leading-9 font-semibold tracking-[-0.025em] text-fg mt-1 truncate">
+              {computerName || 'Centro de diagnóstico'}
+            </h1>
+            <div className="flex items-center gap-2 mt-3 flex-wrap">
+              {windowsInfo?.caption ? (
+                <Badge status="neutral"><Monitor size={11} />{windowsInfo.caption.replace('Microsoft ', '')}</Badge>
+              ) : busy && <div className="skeleton h-[22px] w-40 rounded-full" />}
+              {windowsInfo?.build && <Badge status="neutral">Build {windowsInfo.build}</Badge>}
+              {windowsInfo?.architecture && <Badge status="neutral">{windowsInfo.architecture}</Badge>}
+              {networkInfo && (
+                <Badge status={networkInfo.internet ? 'ok' : 'warning'} dot>{networkInfo.internet ? 'En línea' : 'Sin Internet'}</Badge>
+              )}
+            </div>
+          </div>
+          <div className="flex flex-col items-end gap-2.5">
+            <div className="flex gap-2">
+              <Button icon={<FileDown size={15} />} onClick={handleGenerateReport} loading={generatingReport} disabled={busy}>
+                Exportar reporte
+              </Button>
+              <Button variant="primary" icon={<RefreshCw size={15} className={busy ? 'animate-spin' : ''} />} onClick={onRefresh} disabled={busy}>
+                {busy ? 'Analizando…' : 'Analizar de nuevo'}
+              </Button>
+            </div>
+            <p className="text-[11.5px] text-subtle flex items-center gap-1.5">
+              <Clock size={12} />
+              {busy ? 'Leyendo hardware…' : lastScan ? `Último análisis ${lastScan.toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' })}` : '—'}
+            </p>
+          </div>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-        {/* CPU Card - solo info estática */}
-        <ToolCard
-          icon={<Cpu size={20} />}
-          title="CPU / Procesador"
-          description={cpuInfo?.model || 'Cargando...'}
-          status={cpuInfo ? 'ok' : 'info'}
-          statusText={cpuInfo ? 'Detectado' : 'Cargando'}
-          accentColor="blue"
-          primaryAction="Analizar"
-          primaryOnClick={handleAnalyze}
-          secondaryAction="Información"
-          loading={analyzing}
-        >
+      {/* Indicadores */}
+      <div className="grid grid-cols-2 xl:grid-cols-4 gap-3">
+        <Stat busy={busy}
+          icon={<Cpu size={18} />} tone="indigo" label="Procesador"
+          value={cpuInfo ? shortCpu(cpuInfo.model) : null}
+          sub={cpuInfo ? `${cpuInfo.logicalCores} hilos · ${formatFrequency(cpuInfo.speed)}` : undefined}
+        />
+        <Stat busy={busy}
+          icon={<MemoryStick size={18} />} tone="emerald" label="Memoria"
+          value={ramInfo ? formatBytes(ramInfo.total) : null}
+          sub={ramInfo ? `${ramPct}% en uso · ${ramInfo.moduleCount} módulo(s)` : undefined}
+          progress={ramInfo ? ramPct : undefined}
+        />
+        <Stat busy={busy}
+          icon={<HardDrive size={18} />} tone="amber" label="Almacenamiento"
+          value={diskInfo ? formatBytes(totalDisk) : null}
+          sub={diskInfo ? `${formatBytes(freeDisk)} libres` : undefined}
+          progress={diskInfo ? diskPct : undefined}
+        />
+        <Stat busy={busy}
+          icon={<MonitorSmartphone size={18} />} tone="violet" label="Gráficos"
+          value={gpuInfo ? (mainGpu?.name ?? 'No detectada') : null}
+          sub={mainGpu ? (mainGpu.vram > 0 ? `${formatBytes(mainGpu.vram)} VRAM` : 'VRAM N/A') : undefined}
+        />
+      </div>
+
+      {/* Detalle */}
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-3">
+        <Panel icon={<Cpu size={16} />} tone="indigo" title="Procesador" loading={!cpuInfo && busy}>
           {cpuInfo && (
-            <div className="space-y-3">
-              <div className="grid grid-cols-2 gap-2">
-                <SystemCard title="Núcleos" value={`${cpuInfo.cores}`} subtitle={`${cpuInfo.logicalCores} hilos`} />
-                <SystemCard title="Frecuencia base" value={formatFrequency(cpuInfo.speed * 1000)} />
-                <SystemCard title="Frecuencia máx." value={formatFrequency(cpuInfo.maxSpeed * 1000)} />
-                <SystemCard title="Fabricante" value={cpuInfo.manufacturer} />
-              </div>
-              <div className="text-[10px] text-slate-500 pt-1 border-t border-slate-100">
-                {cpuInfo.model}
-              </div>
+            <div className="grid grid-cols-2 gap-x-6 gap-y-3.5">
+              <KeyValue label="Modelo" value={cpuInfo.model} span />
+              <KeyValue label="Fabricante" value={cpuInfo.manufacturer} />
+              <KeyValue label="Hilos lógicos" value={cpuInfo.logicalCores} />
+              <KeyValue label="Frecuencia" value={formatFrequency(cpuInfo.speed)} />
+              <KeyValue label="Temperatura" value={cpuInfo.temperature ? `${Math.round(cpuInfo.temperature)} °C` : 'No disponible'} />
             </div>
           )}
-        </ToolCard>
+        </Panel>
 
-        {/* RAM Card - solo info estática */}
-        <ToolCard
-          icon={<MemoryStick size={20} />}
-          title="Memoria RAM"
-          description={ramInfo ? `${formatBytes(ramInfo.total)} total` : 'Cargando...'}
-          status={ramInfo ? 'ok' : 'info'}
-          statusText={ramInfo ? `${ramInfo.moduleCount} módulo(s)` : 'Cargando'}
-          accentColor="green"
-          primaryAction="Diagnosticar"
-          secondaryAction="Información"
+        <Panel
+          icon={<MemoryStick size={16} />} tone="emerald" title="Memoria RAM" loading={!ramInfo && busy}
+          right={ramInfo && <Badge status="neutral">{ramInfo.moduleCount} módulo(s)</Badge>}
         >
           {ramInfo && (
-            <div className="space-y-3">
-              <div className="grid grid-cols-2 gap-2">
-                <SystemCard title="Total" value={formatBytes(ramInfo.total)} />
-                <SystemCard title="Módulos" value={`${ramInfo.moduleCount}`} />
+            <div className="space-y-4">
+              <div>
+                <div className="flex justify-between text-[12px] mb-1.5">
+                  <span className="text-muted">En uso <span className="text-fg font-medium">{formatBytes(ramInfo.used)}</span></span>
+                  <span className="text-subtle tabular-nums">{ramPct}% de {formatBytes(ramInfo.total)}</span>
+                </div>
+                <ProgressBar value={ramPct} height="h-2" />
               </div>
               {ramInfo.modules.length > 0 && (
-                <div className="text-[10px] text-slate-500 space-y-1 pt-2 border-t border-slate-100">
+                <div className="grid grid-cols-2 gap-2">
                   {ramInfo.modules.map((m, i) => (
-                    <div key={i} className="flex justify-between">
-                      <span>Módulo {i + 1}: {formatBytes(m.capacity)}</span>
-                      <span>{m.speed}MHz {m.manufacturer ? `· ${m.manufacturer}` : ''}</span>
+                    <div key={i} className="rounded-xl bg-surface-2/70 border border-line/70 px-3 py-2">
+                      <p className="text-[11px] text-subtle">Ranura {i + 1}</p>
+                      <p className="text-[13px] font-semibold text-fg">{formatBytes(m.capacity)} <span className="font-normal text-muted">· {m.speed} MHz</span></p>
+                      {m.manufacturer && <p className="text-[11px] text-muted truncate">{m.manufacturer}</p>}
                     </div>
                   ))}
                 </div>
               )}
             </div>
           )}
-        </ToolCard>
+        </Panel>
 
-        {/* Disk Card */}
-        <ToolCard
-          icon={<HardDrive size={20} />}
-          title="Almacenamiento"
-          description={diskInfo ? `${diskInfo.logical.length} unidad(es) detectada(s)` : 'Cargando...'}
-          status={diskInfo ? 'ok' : 'info'}
-          statusText={diskInfo ? 'Detectado' : 'Cargando'}
-          accentColor="yellow"
-          primaryAction="Analizar"
-          secondaryAction="SMART"
-        >
-          {diskInfo && diskInfo.logical.length > 0 && (
-            <div className="space-y-3">
-              {diskInfo.logical.map((disk, i) => {
-                const used = disk.total - disk.free;
-                const pct = disk.total > 0 ? (used / disk.total) * 100 : 0;
+        <Panel icon={<HardDrive size={16} />} tone="amber" title="Almacenamiento" loading={!diskInfo && busy}>
+          {diskInfo && (
+            <div className="space-y-4">
+              {diskInfo.logical.map((d, i) => {
+                const used = d.total - d.free;
+                const pct = d.total > 0 ? (used / d.total) * 100 : 0;
                 return (
                   <div key={i}>
-                    <div className="flex justify-between text-[10px] mb-1">
-                      <span className="text-slate-600">Disco {disk.letter}</span>
-                      <span className="text-slate-500">{formatBytes(disk.free)} libre</span>
+                    <div className="flex items-center justify-between text-[12px] mb-1.5">
+                      <span className="flex items-center gap-2">
+                        <span className="font-semibold text-fg">{d.letter}</span>
+                        <span className="text-subtle">{d.fileSystem}</span>
+                      </span>
+                      <span className="text-muted tabular-nums">
+                        <span className="text-fg font-medium">{formatBytes(d.free)}</span> libres de {formatBytes(d.total)}
+                      </span>
                     </div>
-                    <ProgressBar value={pct} />
-                    <div className="text-[10px] text-slate-500 mt-0.5">
-                      {formatBytes(used)} / {formatBytes(disk.total)} ({Math.round(pct)}%)
-                    </div>
+                    <ProgressBar value={pct} height="h-2" />
                   </div>
                 );
               })}
+              {diskInfo.physical.length > 0 && (
+                <div className="pt-3 border-t border-line space-y-2">
+                  {diskInfo.physical.map((p, i) => (
+                    <div key={i} className="flex items-center justify-between gap-3 text-[12px]">
+                      <span className="text-fg truncate">{p.model}</span>
+                      <span className="flex items-center gap-2 shrink-0">
+                        <Badge status="neutral">{p.interfaceType}</Badge>
+                        <span className="text-muted tabular-nums">{formatBytes(p.size)}</span>
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
+              {diskInfo.logical.length === 0 && <p className="text-[12.5px] text-muted">No se detectaron unidades.</p>}
             </div>
           )}
-        </ToolCard>
+        </Panel>
 
-        {/* GPU Card */}
-        <ToolCard
-          icon={<MonitorSmartphone size={20} />}
-          title="GPU / Tarjeta Gráfica"
-          description={gpuInfo.length > 0 ? gpuInfo[0].name : 'Cargando...'}
-          status={gpuInfo.length > 0 ? 'ok' : 'info'}
-          statusText={gpuInfo.length > 0 ? 'Detectada' : 'Cargando'}
-          accentColor="purple"
-          primaryAction="Diagnosticar"
-          secondaryAction="Información"
-        >
-          {gpuInfo.length > 0 && (
-            <div className="space-y-3">
-              {gpuInfo.map((gpu, i) => (
-                <div key={i} className="grid grid-cols-2 gap-2">
-                  <SystemCard title="Modelo" value={gpu.name} />
-                  <SystemCard title="VRAM" value={gpu.vram > 0 ? formatBytes(gpu.vram) : 'N/A'} />
-                  <SystemCard title="Driver" value={gpu.driverVersion} />
-                  <SystemCard title="Fecha" value={gpu.driverDate || 'N/A'} />
+        <Panel icon={<MonitorSmartphone size={16} />} tone="violet" title="Tarjeta gráfica" loading={!gpuInfo && busy}>
+          {gpuInfo && (gpuInfo.length === 0 ? (
+            <p className="text-[12.5px] text-muted">No se detectó ninguna GPU.</p>
+          ) : (
+            <div className="space-y-4 divide-y divide-line">
+              {gpuInfo.map((g, i) => (
+                <div key={i} className={cx('grid grid-cols-2 gap-x-6 gap-y-3.5', i > 0 && 'pt-4')}>
+                  <KeyValue label="Modelo" value={g.name} span />
+                  <KeyValue label="VRAM" value={g.vram > 0 ? formatBytes(g.vram) : 'N/A'} />
+                  <KeyValue label="Driver" value={g.driverVersion} mono />
+                  <KeyValue label="Fecha del driver" value={g.driverDate || 'N/A'} />
                 </div>
               ))}
             </div>
-          )}
-        </ToolCard>
+          ))}
+        </Panel>
 
-        {/* Windows Card */}
-        <ToolCard
-          icon={<Info size={20} />}
-          title="Sistema Operativo"
-          description={windowsInfo?.caption || 'Cargando...'}
-          status={windowsInfo ? 'ok' : 'info'}
-          statusText={windowsInfo ? 'Detectado' : 'Cargando'}
-          accentColor="cyan"
-          primaryAction="Información"
-        >
+        <Panel icon={<CircuitBoard size={16} />} tone="sky" title="Sistema y placa base" loading={!windowsInfo && busy}>
           {windowsInfo && (
-            <div className="grid grid-cols-2 gap-2">
-              <SystemCard title="Versión" value={windowsInfo.version || 'N/A'} />
-              <SystemCard title="Build" value={windowsInfo.build || 'N/A'} />
-              <SystemCard title="Arquitectura" value={windowsInfo.architecture || 'N/A'} />
-              <SystemCard title="Registrado a" value={windowsInfo.registeredUser || 'N/A'} />
+            <div className="grid grid-cols-2 gap-x-6 gap-y-3.5">
+              <KeyValue label="Sistema operativo" value={windowsInfo.caption || 'N/A'} span />
+              <KeyValue label="Versión" value={windowsInfo.version || 'N/A'} />
+              <KeyValue label="Build" value={windowsInfo.build || 'N/A'} />
+              <KeyValue label="Registrado a" value={windowsInfo.registeredUser || 'N/A'} />
+              <KeyValue label="Instalado" value={windowsInfo.installDate || 'N/A'} />
               {windowsInfo.boardManufacturer && (
-                <div className="col-span-2">
-                  <SystemCard title="Placa Base" value={`${windowsInfo.boardManufacturer} ${windowsInfo.boardProduct || ''}`.trim()} />
-                </div>
+                <KeyValue label="Placa base" value={`${windowsInfo.boardManufacturer} ${windowsInfo.boardProduct || ''}`.trim()} span />
               )}
-              {windowsInfo.boardVersion && (
-                <SystemCard title="Versión BIOS" value={windowsInfo.boardVersion} />
-              )}
+              {windowsInfo.boardVersion && <KeyValue label="Versión BIOS / placa" value={windowsInfo.boardVersion} />}
             </div>
           )}
-        </ToolCard>
+        </Panel>
 
-        {/* Network Card */}
-        <ToolCard
-          icon={<Wifi size={20} />}
-          title="Red"
-          description={networkInfo?.ip ? `IP: ${networkInfo.ip}` : 'Cargando...'}
-          status={networkInfo?.internet ? 'ok' : networkInfo?.ip ? 'warning' : 'info'}
-          statusText={networkInfo?.internet ? 'Conectado' : 'Sin Internet'}
-          accentColor="orange"
-          primaryAction="Diagnosticar"
-          secondaryAction="Información"
+        <Panel
+          icon={networkInfo?.internet === false ? <WifiOff size={16} /> : <Wifi size={16} />} tone="cyan" title="Red" loading={!networkInfo && busy}
+          right={networkInfo && <Badge status={networkInfo.internet ? 'ok' : 'warning'} dot>{networkInfo.internet ? 'Conectado' : 'Sin Internet'}</Badge>}
         >
           {networkInfo && (
-            <div className="grid grid-cols-2 gap-2">
-              <SystemCard title="IP Local" value={networkInfo.ip || 'N/A'} />
-              <SystemCard title="Gateway" value={networkInfo.gateway || 'N/A'} />
-              <SystemCard title="DNS" value={networkInfo.dns || 'N/A'} />
-              <SystemCard title="MAC" value={networkInfo.mac || 'N/A'} />
+            <div className="grid grid-cols-2 gap-x-6 gap-y-3.5">
+              <KeyValue label="IP local" value={networkInfo.ip || 'N/A'} mono />
+              <KeyValue label="Puerta de enlace" value={networkInfo.gateway || 'N/A'} mono />
+              <KeyValue label="DNS" value={networkInfo.dns || 'N/A'} mono />
+              <KeyValue label="MAC" value={networkInfo.mac || 'N/A'} mono />
             </div>
           )}
-        </ToolCard>
+        </Panel>
       </div>
+    </div>
+  );
+}
+
+function Stat({ icon, tone, label, value, sub, progress, busy }: {
+  icon: ReactNode; tone: string; label: string; value: string | null; sub?: string; progress?: number; busy: boolean;
+}) {
+  return (
+    <div className="card p-4 min-w-0">
+      <div className="flex items-center gap-2.5">
+        <IconTile tone={tone} size="sm">{icon}</IconTile>
+        <span className="text-[12px] font-medium text-muted">{label}</span>
+      </div>
+      {value === null && !busy ? (
+        <p className="mt-3 text-[17px] font-semibold text-subtle">—</p>
+      ) : value === null ? (
+        <div className="mt-3.5 space-y-2">
+          <div className="skeleton h-5 w-3/4" />
+          <div className="skeleton h-3 w-1/2" />
+        </div>
+      ) : (
+        <>
+          <p className="mt-3 text-[17px] font-semibold tracking-tight text-fg truncate" title={value}>{value}</p>
+          {sub && <p className="text-[12px] text-muted mt-0.5 truncate">{sub}</p>}
+          {typeof progress === 'number' && <div className="mt-3"><ProgressBar value={progress} /></div>}
+        </>
+      )}
+    </div>
+  );
+}
+
+function Panel({ icon, tone, title, right, loading, children }: {
+  icon: ReactNode; tone: string; title: string; right?: ReactNode; loading?: boolean; children?: ReactNode;
+}) {
+  return (
+    <div className="card p-5 min-w-0">
+      <div className="flex items-center justify-between gap-3 mb-4">
+        <div className="flex items-center gap-2.5">
+          <IconTile tone={tone} size="sm">{icon}</IconTile>
+          <h3 className="text-[13.5px] font-semibold text-fg">{title}</h3>
+        </div>
+        {right}
+      </div>
+      {loading ? (
+        <div className="grid grid-cols-2 gap-4">
+          {[0, 1, 2, 3].map(i => (
+            <div key={i} className="space-y-1.5">
+              <div className="skeleton h-3 w-16" />
+              <div className="skeleton h-4 w-28" />
+            </div>
+          ))}
+        </div>
+      ) : (children || <p className="text-[12.5px] text-muted">No disponible. Pulsa «Analizar de nuevo».</p>)}
     </div>
   );
 }

@@ -19,17 +19,17 @@ export function formatUptime(seconds: number): string {
 
 export function getStatusColor(level: 'info' | 'success' | 'warning' | 'error'): string {
   switch (level) {
-    case 'info': return 'text-blue-400';
-    case 'success': return 'text-green-400';
-    case 'warning': return 'text-yellow-400';
-    case 'error': return 'text-red-400';
-    default: return 'text-dark-300';
+    case 'info': return 'text-sky-600 dark:text-sky-400';
+    case 'success': return 'text-emerald-600 dark:text-emerald-400';
+    case 'warning': return 'text-amber-600 dark:text-amber-400';
+    case 'error': return 'text-red-600 dark:text-red-400';
+    default: return 'text-muted';
   }
 }
 
 export function getUsageColor(percentage: number): string {
-  if (percentage < 50) return 'bg-green-500';
-  if (percentage < 80) return 'bg-yellow-500';
+  if (percentage < 70) return 'bg-accent';
+  if (percentage < 90) return 'bg-amber-500';
   return 'bg-red-500';
 }
 

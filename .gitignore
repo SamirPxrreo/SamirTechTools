@@ -5,6 +5,12 @@ release/
 # dControl se mantiene en el repo (requerido para Defender Control)
 !resources/defender-control/
 
+# Licencia de WinRAR: se incluye en el instalador desde esta PC, NO se sube al repo (es público)
+resources/winrar/rarreg.key
+
+# Salida local de graphify
+graphify-out/
+
 # Ejecutables descargados (van por Release, no en repo)
 *.exe
 !resources/defender-control/dControl.exe

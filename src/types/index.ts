@@ -180,6 +180,9 @@ export interface ElectronAPI {
   runCommands: (commands: string[]) => Promise<{ success: boolean; output: string }>;
   onCommandProgress: (callback: (data: { chunk: string; isErr?: boolean }) => void) => () => void;
   installOpencode: () => Promise<{ success: boolean; output: string }>;
+  winrarActivate: () => Promise<{ success: boolean; output: string }>;
+  ensureDir: (dir: string) => Promise<{ success: boolean; path?: string; output?: string }>;
+  getPath: (name: 'desktop' | 'downloads' | 'documents') => Promise<string>;
   mountIso: (isoPath: string) => Promise<{ success: boolean; driveLetter: string; output?: string }>;
   unmountIso: (isoPath: string) => Promise<{ success: boolean; output?: string }>;
   getDrivers: () => Promise<DriverInfo[]>;

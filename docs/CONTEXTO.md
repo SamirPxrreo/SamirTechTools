@@ -27,10 +27,17 @@ Aplicación de escritorio para técnicos de soporte informático. Centro de diag
 - `src/types/index.ts` → interfaz `ElectronAPI` que debe mantenerse sincronizada con preload
 - **NUNCA** usar `exec()` con scripts de PowerShell inline que contengan `$_` — usar la función `ps()` que usa `execFile`
 
-### Tema claro/oscuro
-- Botón luna/sol en `Header.tsx`. Guarda en `localStorage('stt-theme')` y pone `data-theme` en `<html>`
-- `src/index.css` define variables CSS `--bg/--surface/--border/--text` + `--dk-*` para `:root` (claro `#f8fafc`) y `[data-theme='dark']` (`#020617`)
-- Diseño **Minimal Pro**: `Outfit` (Google Fonts) para tipografía, `Rounded 20px` global, `slate` palette. Override explícito para `text-slate-*/bg-slate-*/border-slate-*` en ambos temas.
+### Sistema de diseño (rediseño noviembre 2026)
+- **Tokens semánticos** en `src/index.css` como canales RGB (`--bg --surface --surface-2 --elevated --line --line-strong --fg --muted --subtle --accent --accent-fg --accent-soft --console`) para `:root` (claro) y `[data-theme='dark']` (oscuro, **predeterminado**). `tailwind.config.js` los expone como clases: `bg-surface`, `text-fg`, `text-muted`, `border-line`, `bg-accent/10`, etc. **Usar SIEMPRE estos tokens**, nunca `slate-*`/`neutral-*`/`dark-*` para superficies o texto (ya no hay overrides `!important`).
+- `darkMode: ['class','[data-theme="dark"]']` → se puede usar `dark:` para colores de acento (p. ej. `text-emerald-600 dark:text-emerald-300`).
+- **Fuentes locales** (sin internet): `@fontsource-variable/inter` (UI) y `@fontsource-variable/jetbrains-mono` (consola/IDs).
+- **Componentes base** en `src/components/ui.tsx` (exportados desde `components/index.ts`): `Button`, `IconButton`, `Badge`, `IconTile`, `PageHeader`, `Section`, `Grid`, `Notice`, `EmptyState`, `SearchInput`, `Select`, `Checkbox`, `Switch`, `Tabs`, `Chip`, `Modal`, `KeyValue`, `Spinner`, `cx()`. Tonos: `indigo emerald amber red violet cyan orange pink teal sky slate` (alias antiguos `blue/green/yellow/purple` siguen funcionando).
+- `ToolCard` solo pinta botones que tienen `onClick` (no más botones muertos); `accentColor="red"` = botón primario rojo.
+- `ConsoleOutput` siempre oscura, con botón copiar; `ConfirmModal` usa `Modal` (Escape cierra, respeta saltos de línea).
+- **Preferencias** en `src/context/PrefsContext.tsx` (localStorage): `stt-theme` (light/dark/system), `stt-sidebar-collapsed`, `stt-autodiag`, `stt-log-open`. Se editan en Ajustes.
+- **Navegación** centralizada en `src/config/nav.tsx` (Sidebar + breadcrumb del Header).
+- Header = barra de título **arrastrable** (`.drag` / `.no-drag`, `-webkit-app-region`) con controles estilo Windows 11.
+- **Preview en navegador**: `npx vite` y abrir `http://127.0.0.1:5173` → `src/dev/mockElectron.ts` simula `window.electronAPI` (solo en DEV, no entra al build).
  - Logo circular ST: `public/icon.png` (512x512 12KB, slate-900/indigo) + `public/icon.ico` (32KB) + `public/logo.jpg` (35KB legacy). `Header.tsx` usa `import appIcon from '/icon.png'` (Vite, no titileo) y `BrowserWindow` usa `resources/icon.png/.ico` para ventana/taskbar.
 
 ### Navegación
@@ -56,6 +63,9 @@ Aplicación de escritorio para técnicos de soporte informático. Centro de diag
 - **235 apps** catálogo en `src/data/apps.ts` (winutil + extras) — `Instalar Apps` usa WinGet con **progreso en vivo** (`spawn` + `winget-progress` → `InstallPage.tsx`)
 - IPC `winget-install` resuelve `Get-Command winget` (fix para exe empaquetado), timeout 15 min, sin `--silent` para ver barra, `--source winget` evita `0x8a15005e`
 - **Otras Apps** (`ExtraAppsPage.tsx`): JO-PDF (direct `jopdf.com`), Obsidian (`winget Obsidian.Obsidian`), AionUi 2.1.44 (MediaFire) → `C:\ExtraApps`
+- **WinRAR + Activación**: `winget RARLAB.WinRAR` y luego IPC `winrar-activate` copia `rarreg.key` a la carpeta de WinRAR (registro `HKLM\SOFTWARE\WinRAR` → `Program Files\WinRAR` → `(x86)`). La licencia viaja con la herramienta: `resources/winrar/rarreg.key` (se empaqueta vía `extraResources` → `<app>/resources/winrar/`). **Está en `.gitignore` a propósito (repo público)**: hay que colocarla a mano en cada PC donde se compile. Origen/destino los fija `main.cjs` (la UI no pasa rutas); copia directa y, si falla por permisos, con UAC (`Start-Process -Verb RunAs`).
+- **Carpetas locales automáticas**: las opciones que guardan archivos (Office online → `C:\Office`, Office offline → `C:\OfficeISO`, Otras apps → `C:\ExtraApps`) crean su carpeta solas con el IPC `ensure-dir` (`src/utils/folders.ts → resolveDir`). Por defecto NO preguntan dónde guardar; se activa en Ajustes → «Preguntar dónde guardar» (`stt-ask-location`). El reporte .txt usa el Escritorio real (`get-path`, puede ser `D:\...` u OneDrive).
+- **OpenCode (CLI)**: IPC `install-opencode` = Node.js LTS (winget, si falta) → `Set-ExecutionPolicy` → `npm install -g @opencode/cli` (paquete oficial v2 según opencode.ai/docs; el antiguo `opencode-ai` es v1 y comparte el comando `opencode`, por eso se desinstala antes si existe).
 - Iconos: favicons `https://icons.duckduckgo.com/ip3/<dominio>.ico` (Google s2 no cargaba), cards con click en toda la área (fix logo download)
 - Selección múltiple con instalación en cola + modal de confirmación antes de instalar
 
@@ -93,8 +103,9 @@ npm run electron:build   # instalador NSIS + portable en release/
 Start-Process powershell -Verb RunAs -Wait -ArgumentList '-Command','Set-Location "<ruta-que-indique-el-usuario>"; npm run electron:build'
 ```
  - **GitHub CLI (`gh` 2.98+):** instalado en `C:\Program Files\GitHub CLI\gh.exe` y en PATH. Token `gho_...` con scopes `repo,workflow` (en credencial `git:https://github.com`). Para subir release: `gh release upload v1.0.0 release\*.exe --clobber` o `gh release create v1.0.0 release\*.exe --title v1.0.0`. Fallback: `curl -k` con token.
-- **Comando "sube todo a github" = SUBIR LO NECESARIO PARA QUE LOS EXES FUNCIONEN COMO EN EL CHAT:** cuando el usuario diga "sube todo a github" subir `git add` + `commit` + `push` de lo cambiado, y si cambió `src/`/`electron/`/`resources/` además `npm run electron:build` + `gh release upload v1.0.0 release\*.exe --clobber`. Si solo `*.md`/`docs`, basta `git push`. Mantener `1.0.0` salvo bump mayor.
-- Versión actual: **1.0.0** (Minimal Pro + logo ST circular + dControl + asInvoker + winget hash fix + InstallContext persistente)
+- **Comando "sube todo a github" = SUBIR LO NECESARIO PARA QUE LOS EXES FUNCIONEN COMO EN EL CHAT:** cuando el usuario diga "sube todo a github" subir `git add` + `commit` + `push` de lo cambiado, y si cambió `src/`/`electron/`/`resources/` además `npm run electron:build` + `gh release upload v1.0.0 release\*.exe --clobber`. Si solo `*.md`/`docs`, basta `git push`. Versionado (semver): `1.0.1` = solo arreglos, `1.1.0` = funciones nuevas compatibles, `2.0.0` = cambio grande/incompatible. Al subir versión cambiar `package.json` (+ `package-lock.json`) y `APP_VERSION` en `src/config/constants.ts`, y crear una release nueva `vX.Y.Z` con los `.exe` **y `latest.yml`** (lo necesita el actualizador automático).
+- Versión actual: **1.1.0** (rediseño completo "pro dark" + WinRAR+Activación + OpenCode `@opencode/cli` + carpetas automáticas + Ajustes funcionales). Compilada 21/11/2026 (`Setup-1.1.0.exe` ~65.9MB, `Portable-1.1.0.exe` ~65.7MB). La v1.0.0 fue: Minimal Pro + logo ST circular + dControl + asInvoker + winget hash fix + InstallContext persistente.
+- **Compilar**: `npm run electron:build` falla sin admin (symlinks de winCodeSign, `signAndEditExecutable: true` para incrustar el icono). Se lanzó con un `.ps1` elevado que escribe un log; con UAC aceptado termina con `EXIT=0`.
 
 ## Sincronización y entorno de desarrollo
 - Ver `GUIA_SINCRONIZACION.md` para el flujo completo entre PCs.
@@ -108,9 +119,11 @@ Expand-Archive -Path "$env:TEMP\electron.zip" -DestinationPath "node_modules\ele
 Set-Content -Path "node_modules\electron\path.txt" -Value "electron.exe" -NoNewline
 ```
 
-## Diseño (septiembre 2026)
-- **Minimal Pro**: Header `bg-white/80 backdrop-blur`, sidebar 252px con cards `rounded-2xl`, `ToolCard` `rounded-[20px]`, `SystemCard` `bg-slate-50`. Info del sistema solo en Header (no repetida en sidebar).
-- **Tipografía `Outfit`**, bordes modernos, hover/sombras suaves.
+## Diseño (noviembre 2026) — rediseño completo
+- Estilo "pro dark" (Linear/Raycast) con tema claro pulido. Acento índigo (logo ST). Tipografía Inter.
+- Sidebar plegable (232px / 68px) con tarjeta del equipo; registro inferior plegable con última entrada visible.
+- Dashboard: hero con nombre del equipo + 4 indicadores + 6 paneles con skeletons. Instalar/Desinstalador con barra flotante de selección.
+- Se corrigieron: frecuencia CPU (×1000), unidades del reporte .txt (×1024³ y "C::"), modal invisible en tema claro, Ajustes sin función, ventana no arrastrable, restos de marca "M&M".
 
 ## Estado (02/09/2026)
 - App funcional, probada en Windows 11 x64 - dashboard estático 0% background, carga progresiva tier1/tier2, CPU nativo sin PowerShell

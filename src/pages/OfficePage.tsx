@@ -1,7 +1,9 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { FileText, Download, Wrench, Key, Globe, HardDrive, Shield, CheckCircle, Loader, Trash2 } from 'lucide-react';
-import { ToolCard, ConsoleOutput, ConfirmModal, ProgressBar } from '../components';
+import { FileText, Download, Wrench, Key, Globe, HardDrive, Trash2, Disc3 } from 'lucide-react';
+import { ToolCard, ConsoleOutput, ConfirmModal, ProgressBar, PageHeader, Tabs, Notice, Grid, Spinner, IconTile, Badge, Button } from '../components';
 import { useLogs } from '../context/LogContext';
+import { usePrefs } from '../context/PrefsContext';
+import { resolveDir } from '../utils/folders';
 import { DownloadProgress } from '../types';
 import { PATHS, OFFICE, TOOLS } from '../config/constants';
 
@@ -10,16 +12,9 @@ const SETUP_URL = OFFICE.SETUP_URL;
 const onlineVersions = [...OFFICE.ONLINE_VERSIONS];
 const offlineVersions = [...OFFICE.OFFLINE_VERSIONS];
 
-async function askOfficeDir(title: string, fallback: string) {
-  try {
-    const res = await window.electronAPI.selectDirectory({ title, defaultPath: fallback });
-    if (res.canceled || !res.path) return null;
-    return res.path;
-  } catch { return null; }
-}
-
 export function OfficePage() {
   const { addLog } = useLogs();
+  const { askLocation } = usePrefs();
   const [output, setOutput] = useState('');
   const [loading, setLoading] = useState(false);
   const [activeTab, setActiveTab] = useState<'online' | 'offline' | 'activate' | 'repair'>('online');
@@ -51,9 +46,19 @@ export function OfficePage() {
     setOutput(prev => prev + `\n[${level.toUpperCase()}] ${action}: ${result}`);
   };
 
+  // Carpeta de trabajo: se crea sola si no existe (y solo se pregunta si está activado en Ajustes)
+  const pickDir = async (title: string, fallback: string) => {
+    try {
+      return await resolveDir({ title, defaultDir: fallback, ask: askLocation });
+    } catch (e) {
+      log('Office', 'Error', e instanceof Error ? e.message : String(e), 'error');
+      return null;
+    }
+  };
+
   // ONLINE INSTALL
   const startOnlineInstall = async (version: typeof onlineVersions[0]) => {
-    const chosenDir = await askOfficeDir(`¿Dónde instalar ${version.name}?`, DEFAULT_OFFICE_DIR);
+    const chosenDir = await pickDir(`¿Dónde instalar ${version.name}?`, DEFAULT_OFFICE_DIR);
     if (!chosenDir) return;
     const OFFICE_DIR = chosenDir;
     setConfirmModal({
@@ -70,7 +75,7 @@ export function OfficePage() {
           // Create directory
           setDownloadStatus('Creando carpeta...');
           log('Office', 'Preparando', `Creando carpeta ${OFFICE_DIR}`, 'info');
-          await window.electronAPI.runCommand(`if not exist "${OFFICE_DIR}" mkdir "${OFFICE_DIR}"`);
+          await window.electronAPI.ensureDir(OFFICE_DIR);
 
           // Download setup.exe
           setDownloadStatus('Descargando setup.exe...');
@@ -117,7 +122,7 @@ export function OfficePage() {
 
   // OFFICE 2019 DIRECTO (c2rsetup sin XML)
   const startOffice2019Direct = async () => {
-    const chosenDir = await askOfficeDir('¿Dónde descargar Office 2019?', DEFAULT_OFFICE_DIR);
+    const chosenDir = await pickDir('¿Dónde descargar Office 2019?', DEFAULT_OFFICE_DIR);
     if (!chosenDir) return;
     const dir = chosenDir;
     const o = OFFICE.OFFICE_2019_DIRECT;
@@ -131,7 +136,7 @@ export function OfficePage() {
         setOutput('');
         setProgress(null);
         try {
-          await window.electronAPI.runCommand(`if not exist "${dir}" mkdir "${dir}"`);
+          await window.electronAPI.ensureDir(dir);
           const filePath = `${dir}\\${o.fileName}`;
           setDownloadStatus(`Descargando ${o.fileName}...`);
           log('Office', 'Descargando', `${o.name} desde c2rsetup.officeapps.live.com`, 'info');
@@ -233,7 +238,13 @@ export function OfficePage() {
           // Create directory
           setDownloadStatus('Creando carpeta...');
           log('Office', 'Preparando', `Creando carpeta ${isoDir}`, 'info');
-          await window.electronAPI.runCommand(`if not exist "${isoDir}" mkdir "${isoDir}"`);
+          const made = await window.electronAPI.ensureDir(isoDir);
+          if (!made.success) {
+            log('Office', 'Error', made.output || `No se pudo crear ${isoDir}`, 'error');
+            setLoading(false);
+            setDownloadStatus('');
+            return;
+          }
 
           // Download ISO
           setDownloadStatus(`Descargando Office ${version.id}...`);
@@ -363,224 +374,183 @@ export function OfficePage() {
     });
   };
 
+  const tabs = [
+    { id: 'online' as const, label: 'Online', icon: <Globe size={14} /> },
+    { id: 'offline' as const, label: 'Offline (ISO)', icon: <HardDrive size={14} /> },
+    { id: 'activate' as const, label: 'Activar', icon: <Key size={14} /> },
+    { id: 'repair' as const, label: 'Reparar y quitar', icon: <Wrench size={14} /> },
+  ];
+
   return (
-    <div className="space-y-6 animate-fade-in">
-      <div>
-        <h1 className="text-xl font-bold text-neutral-900">Microsoft Office</h1>
-        <p className="text-xs text-dark-400 mt-1">Instalar, activar y reparar Microsoft Office</p>
-      </div>
+    <div className="space-y-6">
+      <PageHeader
+        icon={<FileText size={20} />}
+        tone="orange"
+        title="Microsoft Office"
+        description="Instala cualquier versión, actívala o repárala desde un solo lugar"
+      >
+        <Tabs items={tabs} value={activeTab} onChange={setActiveTab} />
+      </PageHeader>
 
-      {/* Tabs */}
-      <div className="flex gap-2 flex-wrap">
-        {[
-          { id: 'online' as const, label: 'Online', icon: <Globe size={16} /> },
-          { id: 'offline' as const, label: 'Offline (ISO)', icon: <HardDrive size={16} /> },
-          { id: 'activate' as const, label: 'Activar', icon: <Key size={16} /> },
-          { id: 'repair' as const, label: 'Reparar', icon: <Wrench size={16} /> },
-        ].map(tab => (
-          <button
-            key={tab.id}
-            onClick={() => setActiveTab(tab.id)}
-            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
-              activeTab === tab.id ? 'bg-primary-600 text-white' : 'bg-dark-800 text-dark-300 hover:bg-dark-700'
-            }`}
-          >
-            {tab.icon}
-            {tab.label}
-          </button>
-        ))}
-      </div>
-
-      {/* Download Progress Bar */}
-      {progress && (
-        <div className="bg-dark-800/80 border border-dark-700 rounded-lg p-4">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-xs text-dark-300 flex items-center gap-2">
-              <Loader size={14} className="animate-spin text-primary-400" />
-              Descargando...
+      {/* Progreso de descarga */}
+      {(progress || downloadStatus) && (
+        <div className="card p-4 animate-fade-in">
+          <div className="flex items-center justify-between gap-3 mb-2.5">
+            <span className="flex items-center gap-2.5 text-[13px] font-medium text-fg">
+              <Spinner size={15} />
+              {downloadStatus || 'Descargando…'}
             </span>
-            <span className="text-xs text-dark-400">
-              {formatBytes(progress.downloaded)} / {formatBytes(progress.total)}
-            </span>
+            {progress && (
+              <span className="text-[12px] text-muted tabular-nums">
+                {formatBytes(progress.downloaded)} / {formatBytes(progress.total)}
+                <span className="ml-2 font-semibold text-fg">{progress.percent}%</span>
+              </span>
+            )}
           </div>
-          <div className="w-full bg-dark-700 rounded-full h-3">
-            <div
-              className="bg-primary-500 h-3 rounded-full transition-all duration-300"
-              style={{ width: `${progress.percent}%` }}
-            />
-          </div>
-          <div className="text-right mt-1">
-            <span className="text-[11px] text-primary-400 font-medium">{progress.percent}%</span>
-          </div>
-        </div>
-      )}
-
-      {downloadStatus && !progress && (
-        <div className="bg-dark-800/80 border border-dark-700 rounded-lg p-4 flex items-center gap-3">
-          <Loader size={16} className="animate-spin text-primary-400" />
-          <span className="text-sm text-dark-200">{downloadStatus}</span>
+          <ProgressBar value={progress?.percent ?? 0} indeterminate={!progress} color="bg-accent" height="h-2" />
         </div>
       )}
 
       {/* ONLINE */}
       {activeTab === 'online' && (
-        <div className="space-y-4">
-          <div className="bg-dark-800/50 border border-dark-700 rounded-lg p-4">
-            <div className="flex items-start gap-3">
-              <Globe size={16} className="text-blue-400 mt-0.5 flex-shrink-0" />
-              <div>
-                <p className="text-xs text-dark-200 font-medium">Instalación Online (descarga automática)</p>
-                <p className="text-[11px] text-dark-400 mt-1">
-                  Se descargará automáticamente <code className="bg-dark-700 px-1 rounded">setup.exe</code> y{' '}
-                  <code className="bg-dark-700 px-1 rounded">Configuration.xml</code> a{' '}
-                  <code className="bg-dark-700 px-1 rounded">{DEFAULT_OFFICE_DIR}\</code>, luego se ejecutará el instalador con permisos de administrador.
-                </p>
-              </div>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="space-y-4 animate-fade-in">
+          <Notice tone="info" icon={<Globe size={15} />} title="Instalación online (descarga automática)">
+            Se descarga <code className="font-mono text-fg">setup.exe</code>, se genera <code className="font-mono text-fg">Configuration.xml</code> en{' '}
+            <code className="font-mono text-fg">{DEFAULT_OFFICE_DIR}\</code> (la carpeta se crea sola si no existe) y se ejecuta el instalador como administrador.
+          </Notice>
+          <Grid>
             {onlineVersions.map(ver => (
               <ToolCard
                 key={ver.id}
-                icon={<Globe size={20} />}
+                icon={<Globe size={18} />}
                 title={ver.name}
-                description="Descarga setup.exe + genera Configuration.xml + instala automáticamente"
+                description="setup.exe + Configuration.xml generado + instalación automática (64-bit, es-MX)."
                 status="info"
-                statusText="Descarga automática"
-                accentColor="blue"
+                statusText="Automático"
+                accentColor="orange"
                 primaryAction="Instalar"
                 primaryOnClick={() => startOnlineInstall(ver)}
                 loading={loading}
               />
             ))}
             <ToolCard
-              icon={<Download size={20} />}
+              icon={<Download size={18} />}
               title={OFFICE.OFFICE_2019_DIRECT.name}
-              description="Descarga directa desde Microsoft (c2rsetup). Se ejecuta sin Configuration.xml"
+              description="Descarga directa desde Microsoft (c2rsetup). Se ejecuta sin Configuration.xml."
               status="info"
               statusText="Directo"
-              accentColor="green"
+              accentColor="emerald"
               primaryAction="Descargar e instalar"
               primaryOnClick={startOffice2019Direct}
               loading={loading}
             />
             <ToolCard
-              icon={<HardDrive size={20} />}
+              icon={<HardDrive size={18} />}
               title={OFFICE.OFFICE_2016.name}
-              description={`Descarga el ZIP de Mediafire (${OFFICE.OFFICE_2016.size}), lo extrae al Escritorio y abre setup.exe para que sigas el asistente`}
+              description={`ZIP (${OFFICE.OFFICE_2016.size}) que se extrae al Escritorio y abre setup.exe para seguir el asistente.`}
               status="warning"
               statusText="ZIP + asistente"
-              accentColor="orange"
+              accentColor="amber"
               primaryAction="Descargar e instalar"
               primaryOnClick={startOffice2016}
               loading={loading}
             />
-          </div>
+          </Grid>
         </div>
       )}
 
       {/* OFFLINE */}
       {activeTab === 'offline' && (
-        <div className="space-y-4">
-          <div className="bg-dark-800/50 border border-dark-700 rounded-lg p-4">
-            <div className="flex items-start gap-3">
-              <HardDrive size={16} className="text-orange-400 mt-0.5 flex-shrink-0" />
-              <div>
-                <p className="text-xs text-dark-200 font-medium">Instalación Offline (ISO automática)</p>
-                <p className="text-[11px] text-dark-400 mt-1">
-                  Se descargará la ISO directamente desde los servidores de Microsoft.
-                  Una vez descargada se monta automáticamente y se ejecuta <code className="bg-dark-700 px-1 rounded">setup.exe</code>.
-                  <br />Requiere conexión a internet para la descarga (~3-5 GB).
-                </p>
-              </div>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+        <div className="space-y-4 animate-fade-in">
+          <Notice tone="warning" icon={<HardDrive size={15} />} title="Instalación offline (ISO automática)">
+            Se descarga la ISO oficial (~3-5 GB), se monta automáticamente, se ejecuta <code className="font-mono text-fg">setup.exe</code> y se desmonta al terminar.
+          </Notice>
+          <Grid>
             {offlineVersions.map(ver => (
               <ToolCard
                 key={ver.id}
-                icon={<FileText size={20} />}
+                icon={<Disc3 size={18} />}
                 title={ver.name}
-                description={`Office ${ver.id} - 64-bit - Español (México)`}
+                description={`Office ${ver.id} · 64-bit · Español (México)`}
                 status="info"
-                statusText="ISO automática"
+                statusText="ISO"
                 accentColor="orange"
-                primaryAction="Descargar e Instalar"
+                primaryAction="Descargar e instalar"
                 primaryOnClick={() => startOfflineInstall(ver)}
                 loading={loading}
               />
             ))}
-          </div>
+          </Grid>
         </div>
       )}
 
       {/* ACTIVATE */}
       {activeTab === 'activate' && (
-        <div className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <ToolCard
-              icon={<Key size={20} />}
-              title="Activar Windows y Office"
-              description="MAS (Microsoft Activation Scripts): Windows por HWID + Office por Ohook, en un solo clic"
-              status="ok" statusText="Recomendado" accentColor="green"
-              primaryAction="Activar todo" primaryOnClick={() => activateAll('Office')}
-              secondaryAction="Docs" secondaryOnClick={() => window.electronAPI.openExternal('https://massgrave.dev')}
-              loading={loading}
-            />
-          </div>
-        </div>
+        <Grid cols={2} className="animate-fade-in">
+          <ToolCard
+            icon={<Key size={18} />}
+            title="Activar Windows y Office"
+            description="MAS (Microsoft Activation Scripts): Windows por HWID y Office por Ohook desde un menú interactivo."
+            status="ok"
+            statusText="Recomendado"
+            accentColor="violet"
+            primaryAction="Abrir MAS"
+            primaryOnClick={() => activateAll('Office')}
+            secondaryAction="Documentación"
+            secondaryOnClick={() => window.electronAPI.openExternal('https://massgrave.dev')}
+            loading={loading}
+          />
+        </Grid>
       )}
 
       {/* REPAIR */}
       {activeTab === 'repair' && (
-        <div className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="space-y-4 animate-fade-in">
+          <Grid cols={2}>
             <ToolCard
-              icon={<Wrench size={20} />}
+              icon={<Wrench size={18} />}
               title="Reparación rápida"
-              description="Repara archivos dañados sin eliminar configuraciones"
-              accentColor="blue" primaryAction="Reparar" primaryOnClick={() => repairOffice('Rápida')} loading={loading}
-            />
-            <ToolCard
-              icon={<Wrench size={20} />}
-              title="Reparación completa"
-              description="Reinstala componentes. Abre Panel de Control"
-              accentColor="yellow" primaryAction="Reparar" primaryOnClick={() => repairOffice('Completa')} loading={loading}
-            />
-          </div>
-          
-          {/* Desinstalación completa de Office */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <ToolCard
-              icon={<Trash2 size={20} />}
-              title="Desinstalación COMPLETA de Office"
-              description="Elimina TODOS los componentes de Office (incluye licencias, registro, carpetas, tareas programadas). Usa el script oficial de Microsoft (Office Scrubber). Requiere reinicio."
-              status="error"
-              statusText="Irreversible"
-              accentColor="red"
-              primaryAction="Desinstalar TODO"
-              primaryOnClick={uninstallOfficeCompletely}
+              description="Repara archivos dañados de Office sin tocar tu configuración."
+              accentColor="indigo"
+              primaryAction="Reparar"
+              primaryOnClick={() => repairOffice('Rápida')}
               loading={loading}
             />
+            <ToolCard
+              icon={<Wrench size={18} />}
+              title="Reparación completa"
+              description="Reinstala componentes desde el Panel de control (Programas → Office → Cambiar)."
+              accentColor="amber"
+              primaryAction="Abrir"
+              primaryOnClick={() => repairOffice('Completa')}
+              loading={loading}
+            />
+          </Grid>
+
+          <div className="card border-red-500/25 bg-red-500/[0.03] p-5 flex items-center gap-4 flex-wrap">
+            <IconTile tone="red" size="lg"><Trash2 size={20} /></IconTile>
+            <div className="flex-1 min-w-[260px]">
+              <div className="flex items-center gap-2">
+                <h3 className="text-[14px] font-semibold text-fg">Desinstalación completa de Office</h3>
+                <Badge status="error" dot>Irreversible</Badge>
+              </div>
+              <p className="text-[12.5px] text-muted mt-1">
+                Elimina todos los componentes (apps, licencias, registro, carpetas y tareas) con Office Scrubber. Requiere reinicio.
+              </p>
+            </div>
+            <Button variant="danger" icon={<Trash2 size={14} />} onClick={uninstallOfficeCompletely} loading={loading}>Desinstalar todo</Button>
           </div>
         </div>
       )}
 
-      {/* Console */}
-      {(output || loading) && (
-        <div className="mt-4">
-          <h3 className="text-sm font-semibold text-dark-300 mb-2">Consola</h3>
-          <ConsoleOutput output={output} loading={loading} />
-        </div>
-      )}
+      {(output || loading) && <ConsoleOutput title="Office" output={output.trimStart()} loading={loading} />}
 
       <ConfirmModal
         isOpen={confirmModal.open}
         title={confirmModal.title}
         message={confirmModal.message}
         confirmText="Continuar"
+        danger={confirmModal.title.includes('COMPLETA')}
         onConfirm={confirmModal.onConfirm}
         onCancel={() => setConfirmModal({ ...confirmModal, open: false })}
       />

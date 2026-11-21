@@ -44,7 +44,7 @@ function createWindow() {
       contextIsolation: true,
       nodeIntegration: false,
     },
-    backgroundColor: '#020617',
+    backgroundColor: '#0a0c10',
   });
 
   if (process.argv.includes('--dev')) {
@@ -87,9 +87,29 @@ ipcMain.on('window-maximize', () => {
 });
 ipcMain.on('window-close', () => mainWindow?.close());
 
+// ========== CARPETAS LOCALES ==========
+// Crea una carpeta (y sus padres) si no existe. Solo rutas absolutas y válidas.
+function ensureDir(p) {
+  const safe = sanitizePath(p);
+  if (!safe || !path.isAbsolute(safe)) throw new Error('Ruta de carpeta inválida: ' + String(p).slice(0, 120));
+  fs.mkdirSync(safe, { recursive: true });
+  return safe;
+}
+ipcMain.handle('ensure-dir', async (event, dir) => {
+  try { return { success: true, path: ensureDir(dir) }; }
+  catch (err) { return { success: false, output: 'No se pudo crear la carpeta ' + String(dir) + ': ' + (err.message || err) }; }
+});
+// Rutas reales del sistema (el Escritorio puede estar en D:\ u OneDrive, no siempre C:\Users\<usuario>\Desktop)
+ipcMain.handle('get-path', async (event, name) => {
+  if (!['desktop', 'downloads', 'documents'].includes(name)) return '';
+  try { return app.getPath(name); } catch { return ''; }
+});
+
 // ========== DIÁLOGO SELECCIÓN DE CARPETA ==========
 ipcMain.handle('select-directory', async (event, options) => {
   try {
+    // Si la carpeta sugerida no existe, el diálogo no abre ahí: se crea antes para que abra directamente en ella
+    if (options?.defaultPath) { try { ensureDir(options.defaultPath); } catch {} }
     const result = await dialog.showOpenDialog(mainWindow, {
       properties: ['openDirectory', 'createDirectory'],
       title: options?.title || 'Selecciona la carpeta de destino',
@@ -797,8 +817,15 @@ if (-not (Get-Command npm -ErrorAction SilentlyContinue)) {
 }
 
 Write-Host ''
-Write-Host '=== PASO 3/3: Instalando OpenCode CLI (npm) ==='
-npm install -g opencode-ai
+Write-Host '=== PASO 3/3: Instalando OpenCode CLI (npm install -g @opencode/cli) ==='
+# opencode-ai (v1, paquete antiguo) y @opencode/cli (v2) definen el mismo comando "opencode":
+# si el viejo sigue instalado, npm falla con EEXIST. Se quita antes de instalar el nuevo.
+$oldPkg = (npm ls -g opencode-ai --depth=0 2>&1 | Out-String)
+if ($oldPkg -match 'opencode-ai@') {
+  Write-Host 'Se detecto opencode-ai (v1). Desinstalando para reemplazarlo por @opencode/cli...'
+  npm uninstall -g opencode-ai
+}
+npm install -g @opencode/cli
 Write-Host ('npm exit code: ' + $LASTEXITCODE)
 if ($LASTEXITCODE -ne 0) {
   Write-Host '[ERROR] npm no pudo instalar opencode. Revisa la conexion a internet y reintenta.'
@@ -833,6 +860,51 @@ Write-Host 'Listo.'
     });
     child.on('error', (err) => { clearTimeout(t); fullOut += String(err); resolve({ success: false, output: fullOut }); });
   });
+});
+
+// WinRAR + Activación: copia rarreg.key a la carpeta de instalación de WinRAR.
+// La licencia viaja con la herramienta: resources/winrar/rarreg.key (en el instalador: <app>/resources/winrar/).
+// Origen y destino los decide el proceso principal (la UI no pasa rutas) porque la copia
+// se hace con elevación (UAC) en Program Files y no debe aceptar rutas arbitrarias.
+const WINRAR_KEY_SRC = app.isPackaged
+  ? path.join(process.resourcesPath, 'winrar', 'rarreg.key')
+  : path.join(__dirname, '..', 'resources', 'winrar', 'rarreg.key');
+ipcMain.handle('winrar-activate', async () => {
+  const src = WINRAR_KEY_SRC;
+  if (!fs.existsSync(src)) {
+    return { success: false, output: 'La licencia rarreg.key no está incluida en esta copia de la herramienta.\nColócala en: ' + src };
+  }
+
+  // Carpeta de instalación: registro (exe64/exe32) -> Program Files -> Program Files (x86)
+  const dirs = [];
+  try {
+    const r = await ps("$k = Get-ItemProperty 'HKLM:\\SOFTWARE\\WinRAR' -ErrorAction SilentlyContinue; if ($k) { $k.exe64; $k.exe32 }");
+    for (const line of (r.output || '').split(/\r?\n/)) { const l = line.trim(); if (l) dirs.push(path.dirname(l)); }
+  } catch {}
+  dirs.push(path.join(process.env.ProgramFiles || 'C:\\Program Files', 'WinRAR'));
+  dirs.push(path.join(process.env['ProgramFiles(x86)'] || 'C:\\Program Files (x86)', 'WinRAR'));
+  const installDir = dirs.find(d => fs.existsSync(path.join(d, 'WinRAR.exe')));
+  if (!installDir) return { success: false, output: 'No se encontró la carpeta de instalación de WinRAR (¿está instalado?).' };
+
+  const dest = path.join(installDir, 'rarreg.key');
+  const sameFile = () => { try { return fs.existsSync(dest) && fs.statSync(dest).size === fs.statSync(src).size; } catch { return false; } };
+
+  // 1) Intento directo (funciona si la app ya corre como administrador)
+  try { fs.copyFileSync(src, dest); } catch {}
+
+  // 2) Si no se pudo (Program Files exige permisos), copiar con elevación (UAC)
+  if (!sameFile()) {
+    const q = (s) => s.replace(/'/g, "''");
+    const enc = Buffer.from(`Copy-Item -LiteralPath '${q(src)}' -Destination '${q(dest)}' -Force`, 'utf16le').toString('base64');
+    await new Promise((resolve) => {
+      execFile('powershell', ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-Command',
+        `Start-Process powershell -Verb RunAs -Wait -WindowStyle Hidden -ArgumentList '-NoProfile','-ExecutionPolicy','Bypass','-EncodedCommand','${enc}'`],
+        { timeout: 180000, windowsHide: true }, () => resolve());
+    });
+  }
+
+  if (sameFile()) return { success: true, output: `Licencia copiada: ${src}\n→ ${dest}` };
+  return { success: false, output: `No se pudo copiar la licencia a ${installDir}.\nSi cancelaste el aviso de administrador (UAC), vuelve a intentarlo y acepta.` };
 });
 
 const wingetChildren = new Map();

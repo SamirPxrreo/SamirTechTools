@@ -1,64 +1,68 @@
 /** @type {import('tailwindcss').Config} */
+
+// Todos los colores de superficie/texto salen de variables CSS (src/index.css),
+// así el tema claro/oscuro cambia solo con `data-theme` en <html>, sin overrides.
+const token = (name) => `rgb(var(--${name}) / <alpha-value>)`;
+
 export default {
-  content: [
-    "./index.html",
-    "./src/**/*.{js,ts,jsx,tsx}",
-  ],
+  darkMode: ['class', '[data-theme="dark"]'],
+  content: ['./index.html', './src/**/*.{js,ts,jsx,tsx}'],
   theme: {
     extend: {
+      fontFamily: {
+        sans: ['"Inter Variable"', 'Inter', '"Segoe UI Variable"', '"Segoe UI"', 'system-ui', 'sans-serif'],
+        mono: ['"JetBrains Mono Variable"', '"Cascadia Code"', 'Consolas', 'monospace'],
+      },
       colors: {
+        // Tokens semánticos
+        bg: token('bg'),
+        surface: token('surface'),
+        'surface-2': token('surface-2'),
+        elevated: token('elevated'),
+        line: token('line'),
+        'line-strong': token('line-strong'),
+        fg: token('fg'),
+        muted: token('muted'),
+        subtle: token('subtle'),
+        accent: {
+          DEFAULT: token('accent'),
+          fg: token('accent-fg'),
+          soft: token('accent-soft'),
+        },
+        // Paletas antiguas mapeadas a tokens (compatibilidad con páginas sin uso: Drivers/Browsers)
         primary: {
-          50: '#eef2ff',
-          100: '#e0e7ff',
-          200: '#c7d2fe',
-          300: '#a5b4fc',
-          400: '#818cf8',
-          500: '#6366f1',
-          600: '#4f46e5',
-          700: '#4338ca',
-          800: '#3730a3',
-          900: '#312e81',
+          300: token('accent-fg'), 400: token('accent-fg'), 500: token('accent'),
+          600: token('accent'), 700: token('accent'),
         },
         dark: {
-          50: 'var(--dk-50)',
-          100: 'var(--dk-100)',
-          200: 'var(--dk-200)',
-          300: 'var(--dk-300)',
-          400: 'var(--dk-400)',
-          500: 'var(--dk-500)',
-          600: 'var(--dk-600)',
-          700: 'var(--dk-700)',
-          800: 'var(--dk-800)',
-          900: 'var(--dk-900)',
-          950: 'var(--dk-950)',
+          50: token('fg'), 100: token('fg'), 200: token('fg'), 300: token('muted'),
+          400: token('muted'), 500: token('subtle'), 600: token('line-strong'),
+          700: token('line'), 800: token('surface'), 900: token('surface-2'), 950: token('bg'),
         },
+      },
+      borderRadius: {
+        xl: '12px',
+        '2xl': '16px',
       },
       boxShadow: {
-        'glow': '0 0 20px -5px rgba(99, 102, 241, 0.4)',
-        'card': '0 8px 32px rgba(0, 0, 0, 0.35)',
-        'lift': '0 12px 40px rgba(0, 0, 0, 0.45)',
+        card: '0 1px 2px rgb(0 0 0 / 0.04), 0 1px 1px rgb(0 0 0 / 0.02)',
+        lift: '0 10px 30px -12px rgb(0 0 0 / 0.25)',
+        pop: '0 24px 60px -16px rgb(0 0 0 / 0.45)',
+        glow: '0 0 0 1px rgb(var(--accent) / 0.35), 0 8px 24px -8px rgb(var(--accent) / 0.55)',
       },
       animation: {
-        'pulse-slow': 'pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite',
-        'fade-in': 'fadeIn 0.35s ease-in-out',
-        'slide-in': 'slideIn 0.3s ease-out',
-        'float': 'float 8s ease-in-out infinite',
+        'fade-in': 'fadeIn 0.28s cubic-bezier(0.2, 0.8, 0.2, 1)',
+        'slide-in': 'slideIn 0.22s cubic-bezier(0.2, 0.8, 0.2, 1)',
+        'scale-in': 'scaleIn 0.18s cubic-bezier(0.2, 0.8, 0.2, 1)',
+        shimmer: 'shimmer 1.6s linear infinite',
       },
       keyframes: {
-        fadeIn: {
-          '0%': { opacity: '0', transform: 'translateY(6px)' },
-          '100%': { opacity: '1', transform: 'translateY(0)' },
-        },
-        slideIn: {
-          '0%': { opacity: '0', transform: 'translateY(10px)' },
-          '100%': { opacity: '1', transform: 'translateY(0)' },
-        },
-        float: {
-          '0%, 100%': { transform: 'translateY(0px) scale(1)' },
-          '50%': { transform: 'translateY(-20px) scale(1.05)' },
-        },
+        fadeIn: { '0%': { opacity: '0', transform: 'translateY(6px)' }, '100%': { opacity: '1', transform: 'none' } },
+        slideIn: { '0%': { opacity: '0', transform: 'translateY(8px)' }, '100%': { opacity: '1', transform: 'none' } },
+        scaleIn: { '0%': { opacity: '0', transform: 'scale(0.96)' }, '100%': { opacity: '1', transform: 'none' } },
+        shimmer: { '0%': { backgroundPosition: '-400px 0' }, '100%': { backgroundPosition: '400px 0' } },
       },
     },
   },
   plugins: [],
-}
+};

@@ -1,6 +1,9 @@
 import React, { useState } from 'react';
-import { Wrench, Monitor, Activity, ListTodo, Server, HardDrive, Settings, Wifi, Disc, Globe, RefreshCw, Trash2, Shield, Zap } from 'lucide-react';
-import { ToolCard, ConsoleOutput, ConfirmModal } from '../components';
+import {
+  Wrench, Monitor, Activity, ListTodo, Server, HardDrive, Settings, Wifi, Disc, Globe, RefreshCw, Trash2, ShieldCheck,
+  Zap, Route, ListTree, Network, DownloadCloud,
+} from 'lucide-react';
+import { ToolCard, ConsoleOutput, ConfirmModal, PageHeader, Section, Grid } from '../components';
 import { useLogs } from '../context/LogContext';
 
 export function UtilitiesPage() {
@@ -8,8 +11,8 @@ export function UtilitiesPage() {
   const [output, setOutput] = useState('');
   const [loading, setLoading] = useState(false);
   const [activeTool, setActiveTool] = useState('');
-  const [confirmModal, setConfirmModal] = useState<{ open: boolean; title: string; message: string; onConfirm: () => void }>({
-    open: false, title: '', message: '', onConfirm: () => {}
+  const [confirmModal, setConfirmModal] = useState<{ open: boolean; title: string; message: string; danger: boolean; onConfirm: () => void }>({
+    open: false, title: '', message: '', danger: false, onConfirm: () => {},
   });
 
   const runTool = async (tool: string, label: string, command: string) => {
@@ -49,216 +52,126 @@ export function UtilitiesPage() {
     setLoading(false);
   };
 
+  const closeModal = () => setConfirmModal(m => ({ ...m, open: false }));
   const confirmAndRun = (title: string, message: string, fn: () => void, danger = false) => {
-    setConfirmModal({ open: true, title, message, onConfirm: () => { setConfirmModal({ open: false, title: '', message: '', onConfirm: () => {} }); fn(); } });
+    setConfirmModal({ open: true, title, message, danger, onConfirm: () => { closeModal(); fn(); } });
   };
 
+  const busy = (l: string) => loading && activeTool === l;
+
   return (
-    <div className="space-y-6 animate-fade-in">
-      <div>
-        <h1 className="text-xl font-bold text-neutral-900">Utilidades del Sistema</h1>
-        <p className="text-xs text-dark-400 mt-1">Herramientas de diagnóstico, mantenimiento y optimización</p>
-      </div>
+    <div className="space-y-8">
+      <PageHeader
+        icon={<Wrench size={20} />}
+        tone="amber"
+        title="Utilidades del sistema"
+        description="Accesos rápidos de diagnóstico, mantenimiento y optimización"
+      />
 
-      {/* System Tools */}
-      <div>
-        <h2 className="text-sm font-semibold text-dark-200 mb-3 flex items-center gap-2">
-          <Monitor size={14} /> Sistema
-        </h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+      <Section title="Mantenimiento" icon={<Zap size={14} />} description="Tareas que modifican el sistema: se pide confirmación">
+        <Grid>
           <ToolCard
-            icon={<Monitor size={20} />}
-            title="Información del sistema"
-            description="Muestra información detallada del hardware y software"
-            accentColor="blue"
+            icon={<Trash2 size={18} />}
+            title="Limpiar archivos temporales"
+            description="Elimina el contenido de %TEMP% y C:\Windows\Temp para liberar espacio."
+            accentColor="amber"
+            primaryAction="Limpiar"
+            primaryOnClick={() => confirmAndRun(
+              'Limpiar archivos temporales',
+              '¿Eliminar los archivos temporales del sistema? Esto liberará espacio en disco. Los archivos en uso se omiten.',
+              () => runPsTool('Limpieza', 'Remove-Item -Path "$env:TEMP\\*" -Recurse -Force -ErrorAction SilentlyContinue; Remove-Item -Path "C:\\Windows\\Temp\\*" -Recurse -Force -ErrorAction SilentlyContinue; Write-Output "Archivos temporales eliminados"'),
+            )}
+            loading={busy('Limpieza')}
+            disabled={loading}
+          />
+          <ToolCard
+            icon={<ShieldCheck size={18} />}
+            title="Verificar integridad del sistema"
+            description="Ejecuta SFC /SCANNOW para reparar archivos del sistema."
+            status="warning"
+            statusText="Admin"
+            accentColor="indigo"
             primaryAction="Ejecutar"
-            primaryOnClick={() => runTool('systeminfo', 'System Info', 'systeminfo')}
-            loading={loading && activeTool === 'System Info'}
+            primaryOnClick={() => confirmAndRun(
+              'Verificar integridad',
+              '¿Ejecutar SFC /SCANNOW? Requiere permisos de administrador y puede tardar varios minutos.',
+              () => runTool('sfc', 'SFC /SCANNOW', 'sfc /scannow'),
+              true,
+            )}
+            loading={busy('SFC /SCANNOW')}
+            disabled={loading}
           />
           <ToolCard
-            icon={<Activity size={20} />}
-            title="Administrador de tareas"
-            description="Abre el Administrador de tareas de Windows"
-            accentColor="green"
+            icon={<RefreshCw size={18} />}
+            title="Actualizar controladores"
+            description="Abre Windows Update para buscar controladores y actualizaciones opcionales."
+            accentColor="emerald"
             primaryAction="Abrir"
-            primaryOnClick={() => openTool('taskmgr', 'Admin. de tareas')}
+            primaryOnClick={() => openTool('ms-settings:windowsupdate', 'Windows Update')}
           />
-          <ToolCard
-            icon={<ListTodo size={20} />}
-            title="Procesos activos"
-            description="Lista todos los procesos en ejecución con uso de memoria"
-            accentColor="yellow"
-            primaryAction="Ejecutar"
-            primaryOnClick={() => runTool('tasklist', 'Lista de procesos', 'tasklist /fo csv')}
-            loading={loading && activeTool === 'Lista de procesos'}
-          />
-          <ToolCard
-            icon={<Server size={20} />}
-            title="Servicios"
-            description="Gestiona los servicios del sistema Windows"
-            accentColor="purple"
-            primaryAction="Abrir"
-            primaryOnClick={() => openTool('services.msc', 'Servicios')}
-          />
-          <ToolCard
-            icon={<HardDrive size={20} />}
-            title="Administración de discos"
-            description="Administra particiones y volúmenes de disco"
-            accentColor="orange"
-            primaryAction="Abrir"
-            primaryOnClick={() => openTool('diskmgmt.msc', 'Admin. de discos')}
-          />
-          <ToolCard
-            icon={<Settings size={20} />}
-            title="Configuración de Windows"
-            description="Abre la configuración del sistema"
-            accentColor="cyan"
-            primaryAction="Abrir"
-            primaryOnClick={() => openTool('ms-settings:', 'Configuración')}
-          />
-        </div>
-      </div>
+        </Grid>
+      </Section>
 
-      {/* Descargas ISO */}
-      <div>
-        <h2 className="text-sm font-semibold text-dark-200 mb-3 flex items-center gap-2">
-          <Disc size={14} /> Descargas ISO
-        </h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+      <Section title="Sistema" icon={<Monitor size={14} />}>
+        <Grid>
+          <ToolCard icon={<Monitor size={18} />} title="Información del sistema" description="Informe detallado de hardware y software (systeminfo)." accentColor="indigo"
+            primaryAction="Ejecutar" primaryOnClick={() => runTool('systeminfo', 'System Info', 'systeminfo')} loading={busy('System Info')} disabled={loading} />
+          <ToolCard icon={<ListTodo size={18} />} title="Procesos activos" description="Lista los procesos en ejecución con su uso de memoria." accentColor="amber"
+            primaryAction="Ejecutar" primaryOnClick={() => runTool('tasklist', 'Lista de procesos', 'tasklist /fo csv')} loading={busy('Lista de procesos')} disabled={loading} />
+          <ToolCard icon={<Activity size={18} />} title="Administrador de tareas" description="Abre el Administrador de tareas de Windows." accentColor="emerald"
+            primaryAction="Abrir" primaryOnClick={() => openTool('taskmgr', 'Admin. de tareas')} />
+          <ToolCard icon={<Server size={18} />} title="Servicios" description="Gestiona los servicios de Windows (services.msc)." accentColor="violet"
+            primaryAction="Abrir" primaryOnClick={() => openTool('services.msc', 'Servicios')} />
+          <ToolCard icon={<HardDrive size={18} />} title="Administración de discos" description="Particiones y volúmenes (diskmgmt.msc)." accentColor="orange"
+            primaryAction="Abrir" primaryOnClick={() => openTool('diskmgmt.msc', 'Admin. de discos')} />
+          <ToolCard icon={<Settings size={18} />} title="Configuración de Windows" description="Abre la aplicación Configuración." accentColor="slate"
+            primaryAction="Abrir" primaryOnClick={() => openTool('ms-settings:', 'Configuración')} />
+        </Grid>
+      </Section>
+
+      <Section title="Red" icon={<Wifi size={14} />}>
+        <Grid>
+          <ToolCard icon={<Wifi size={18} />} title="IPConfig" description="Configuración completa de red (ipconfig /all)." accentColor="cyan"
+            primaryAction="Ejecutar" primaryOnClick={() => runTool('ipconfig', 'IPConfig', 'ipconfig /all')} loading={busy('IPConfig')} disabled={loading} />
+          <ToolCard icon={<Globe size={18} />} title="Ping" description="Prueba de conectividad a 8.8.8.8." accentColor="emerald"
+            primaryAction="Ejecutar" primaryOnClick={() => runTool('ping', 'Ping', 'ping 8.8.8.8 -n 4')} loading={busy('Ping')} disabled={loading} />
+          <ToolCard icon={<RefreshCw size={18} />} title="Vaciar caché DNS" description="Limpia la caché de resolución DNS." accentColor="orange"
+            primaryAction="Ejecutar" primaryOnClick={() => runTool('flush-dns', 'Flush DNS', 'ipconfig /flushdns')} loading={busy('Flush DNS')} disabled={loading} />
+          <ToolCard icon={<Route size={18} />} title="Tracert" description="Traza la ruta de conexión hasta 8.8.8.8." accentColor="indigo"
+            primaryAction="Ejecutar" primaryOnClick={() => runTool('tracert', 'Tracert', 'tracert 8.8.8.8')} loading={busy('Tracert')} disabled={loading} />
+          <ToolCard icon={<ListTree size={18} />} title="Tabla ARP" description="Direcciones vistas en la red local." accentColor="slate"
+            primaryAction="Ejecutar" primaryOnClick={() => runTool('arp', 'ARP Table', 'arp -a')} loading={busy('ARP Table')} disabled={loading} />
+          <ToolCard icon={<Network size={18} />} title="Adaptadores de red" description="Abre las conexiones de red (ncpa.cpl)." accentColor="violet"
+            primaryAction="Abrir" primaryOnClick={() => openTool('ncpa.cpl', 'Adaptadores de red')} />
+        </Grid>
+      </Section>
+
+      <Section title="Descargas ISO" icon={<Disc size={14} />}>
+        <Grid>
           <ToolCard
-            icon={<Disc size={20} />}
-            title="UUP dump - ISOs de Windows"
-            description="Descarga ISOs oficiales de Windows 10/11 en cualquier versión, build e idioma directamente de los servidores de Microsoft"
-            accentColor="blue"
+            icon={<DownloadCloud size={18} />}
+            title="UUP dump · ISOs de Windows"
+            description="ISOs oficiales de Windows 10/11 en cualquier versión, build e idioma, directamente de los servidores de Microsoft."
+            accentColor="sky"
             primaryAction="Abrir UUP dump"
             primaryOnClick={() => {
               window.electronAPI.openExternal('https://uupdump.net/known.php');
               addLog('Utilidades', 'UUP dump', 'Abriendo uupdump.net/known.php', 'info');
             }}
           />
-        </div>
-      </div>
+        </Grid>
+      </Section>
 
-      {/* Network Tools */}
-      <div>
-        <h2 className="text-sm font-semibold text-dark-200 mb-3 flex items-center gap-2">
-          <Wifi size={14} /> Red
-        </h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-          <ToolCard
-            icon={<Wifi size={20} />}
-            title="IPConfig"
-            description="Muestra la configuración completa de red"
-            accentColor="blue"
-            primaryAction="Ejecutar"
-            primaryOnClick={() => runTool('ipconfig', 'IPConfig', 'ipconfig /all')}
-            loading={loading && activeTool === 'IPConfig'}
-          />
-          <ToolCard
-            icon={<Globe size={20} />}
-            title="Ping"
-            description="Prueba de conectividad a 8.8.8.8"
-            accentColor="green"
-            primaryAction="Ejecutar"
-            primaryOnClick={() => runTool('ping', 'Ping', 'ping 8.8.8.8 -n 4')}
-            loading={loading && activeTool === 'Ping'}
-          />
-          <ToolCard
-            icon={<RefreshCw size={20} />}
-            title="Flush DNS"
-            description="Limpia la caché de resolución DNS"
-            accentColor="yellow"
-            primaryAction="Ejecutar"
-            primaryOnClick={() => runTool('flush-dns', 'Flush DNS', 'ipconfig /flushdns')}
-            loading={loading && activeTool === 'Flush DNS'}
-          />
-          <ToolCard
-            icon={<Globe size={20} />}
-            title="Tracert"
-            description="Traza la ruta de conexión a un host"
-            accentColor="purple"
-            primaryAction="Ejecutar"
-            primaryOnClick={() => runTool('tracert', 'Tracert', 'tracert 8.8.8.8')}
-            loading={loading && activeTool === 'Tracert'}
-          />
-          <ToolCard
-            icon={<Wifi size={20} />}
-            title="Tabla ARP"
-            description="Muestra la tabla de direcciones ARP"
-            accentColor="orange"
-            primaryAction="Ejecutar"
-            primaryOnClick={() => runTool('arp', 'ARP Table', 'arp -a')}
-            loading={loading && activeTool === 'ARP Table'}
-          />
-          <ToolCard
-            icon={<Wifi size={20} />}
-            title="Adaptadores de red"
-            description="Abre la configuración de adaptadores"
-            accentColor="cyan"
-            primaryAction="Abrir"
-            primaryOnClick={() => openTool('ncpa.cpl', 'Adaptadores de red')}
-          />
-        </div>
-      </div>
-
-      {/* Maintenance */}
-      <div>
-        <h2 className="text-sm font-semibold text-dark-200 mb-3 flex items-center gap-2">
-          <Zap size={14} /> Mantenimiento
-        </h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-          <ToolCard
-            icon={<Trash2 size={20} />}
-            title="Limpiar archivos temporales"
-            description="Elimina archivos temporales del sistema para liberar espacio"
-            accentColor="yellow"
-            primaryAction="Ejecutar"
-            primaryOnClick={() => confirmAndRun(
-              'Limpiar archivos temporales',
-              '¿Desea eliminar los archivos temporales del sistema? Esto liberará espacio en disco.',
-              () => runPsTool('Limpieza', 'Remove-Item -Path "$env:TEMP\\*" -Recurse -Force -ErrorAction SilentlyContinue; Remove-Item -Path "C:\\Windows\\Temp\\*" -Recurse -Force -ErrorAction SilentlyContinue; Write-Output "Archivos temporales eliminados"')
-            )}
-            loading={loading && activeTool === 'Limpieza'}
-          />
-          <ToolCard
-            icon={<Shield size={20} />}
-            title="Verificar integridad del sistema"
-            description="Ejecuta SFC para verificar archivos del sistema"
-            accentColor="blue"
-            primaryAction="Ejecutar"
-            primaryOnClick={() => confirmAndRun(
-              'Verificar integridad',
-              '¿Desea ejecutar SFC /SCANNOW? Requiere permisos de administrador.',
-              () => runTool('sfc', 'SFC /SCANNOW', 'sfc /scannow'),
-              true
-            )}
-            loading={loading && activeTool === 'SFC /SCANNOW'}
-          />
-          <ToolCard
-            icon={<RefreshCw size={20} />}
-            title="Actualizar controladores"
-            description="Busca actualizaciones de controladores"
-            accentColor="green"
-            primaryAction="Abrir"
-            primaryOnClick={() => openTool('ms-settings:windowsupdate', 'Windows Update')}
-          />
-        </div>
-      </div>
-
-      {(output || loading) && (
-        <div className="mt-4">
-          <h3 className="text-sm font-semibold text-dark-300 mb-2">Consola - {activeTool}</h3>
-          <ConsoleOutput output={output} loading={loading} />
-        </div>
-      )}
+      {(output || loading) && <ConsoleOutput title={activeTool || 'Salida'} output={output} loading={loading} />}
 
       <ConfirmModal
         isOpen={confirmModal.open}
         title={confirmModal.title}
         message={confirmModal.message}
         confirmText="Continuar"
+        danger={confirmModal.danger}
         onConfirm={confirmModal.onConfirm}
-        onCancel={() => setConfirmModal({ ...confirmModal, open: false })}
+        onCancel={closeModal}
       />
     </div>
   );

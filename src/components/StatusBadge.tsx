@@ -1,51 +1,37 @@
 import React from 'react';
+import { Badge, cx } from './ui';
 
 interface StatusBadgeProps {
   status: 'ok' | 'warning' | 'error' | 'info';
   children: React.ReactNode;
 }
 
-const colors = {
-  ok: 'bg-emerald-50 text-emerald-700 border-emerald-200',
-  warning: 'bg-amber-50 text-amber-700 border-amber-200',
-  error: 'bg-red-50 text-red-700 border-red-200',
-  info: 'bg-sky-50 text-sky-700 border-sky-200',
-};
-
 export function StatusBadge({ status, children }: StatusBadgeProps) {
-  return (
-    <span className={`text-[10px] px-2 py-0.5 rounded-full border font-medium ${colors[status]}`}>
-      {children}
-    </span>
-  );
+  return <Badge status={status} dot>{children}</Badge>;
 }
 
 interface ProgressBarProps {
   value: number;
+  /** Clase de color opcional (bg-*). Si no se pasa, se elige por umbral. */
   color?: string;
   height?: string;
   showLabel?: boolean;
+  indeterminate?: boolean;
 }
 
-export function ProgressBar({ value, color, height = 'h-2', showLabel = false }: ProgressBarProps) {
-  const getColor = () => {
-    if (color) return color;
-    if (value < 50) return 'bg-emerald-500';
-    if (value < 80) return 'bg-amber-500';
-    return 'bg-red-500';
-  };
-
+export function ProgressBar({ value, color, height = 'h-1.5', showLabel = false, indeterminate = false }: ProgressBarProps) {
+  const auto = value < 70 ? 'bg-accent' : value < 90 ? 'bg-amber-500' : 'bg-red-500';
+  const pct = Math.max(0, Math.min(value, 100));
   return (
     <div className="w-full">
-      <div className={`w-full bg-slate-200 rounded-full ${height}`}>
-        <div
-          className={`${getColor()} ${height} rounded-full transition-all duration-500 ease-out`}
-          style={{ width: `${Math.min(value, 100)}%` }}
-        />
+      <div className={cx('w-full rounded-full bg-line/70 overflow-hidden', height)}>
+        {indeterminate ? (
+          <div className="h-full w-full skeleton" />
+        ) : (
+          <div className={cx('h-full rounded-full transition-[width] duration-500 ease-out', color || auto)} style={{ width: `${pct}%` }} />
+        )}
       </div>
-      {showLabel && (
-        <span className="text-[10px] text-slate-500 mt-1 block">{Math.round(value)}%</span>
-      )}
+      {showLabel && <span className="text-[11px] text-muted mt-1 block tabular-nums">{Math.round(value)}%</span>}
     </div>
   );
 }

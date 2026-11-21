@@ -53,6 +53,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
     return () => ipcRenderer.removeListener('command-progress', l);
   },
   installOpencode: () => ipcRenderer.invoke('install-opencode'),
+  winrarActivate: () => ipcRenderer.invoke('winrar-activate'),
+  ensureDir: (dir) => ipcRenderer.invoke('ensure-dir', dir),
+  getPath: (name) => ipcRenderer.invoke('get-path', name),
 
   // Download
   downloadFile: (url, destPath) => ipcRenderer.invoke('download-file', { url, destPath }),

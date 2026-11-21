@@ -1,17 +1,10 @@
 import React from 'react';
+import { RefreshCw, PanelLeftClose, PanelLeftOpen, ShieldCheck, ShieldAlert } from 'lucide-react';
 import { Page } from '../types';
-import {
-  LayoutDashboard,
-  Download,
-  Monitor,
-  FileText,
-  AppWindow,
-  Wrench,
-  Trash2,
-  Settings,
-  Network,
-  RefreshCw,
-} from 'lucide-react';
+import { NAV, NAV_FOOTER, NavItem } from '../config/nav';
+import { usePrefs } from '../context/PrefsContext';
+import { useInstall } from '../context/InstallContext';
+import { cx } from './ui';
 
 interface SidebarProps {
   currentPage: Page;
@@ -23,106 +16,111 @@ interface SidebarProps {
   onRefresh: () => void;
 }
 
-type MenuItem = { id: Page; label: string; icon: React.ReactNode; desc: string };
-type MenuGroup = { label: string; items: MenuItem[] };
+export function Sidebar({ currentPage, onNavigate, computerName, username, isAdmin, loading, onRefresh }: SidebarProps) {
+  const { sidebarCollapsed: collapsed, setSidebarCollapsed } = usePrefs();
+  const { installingCount } = useInstall();
 
-const menuGroups: MenuGroup[] = [
-  {
-    label: 'Diagnóstico',
-    items: [
-      { id: 'dashboard', label: 'Diagnóstico', icon: <LayoutDashboard size={16} />, desc: 'Vista general' },
-    ],
-  },
-  {
-    label: 'Instalación',
-    items: [
-      { id: 'install', label: 'Instalar Apps', icon: <Download size={16} />, desc: '235 apps' },
-      { id: 'extra-apps', label: 'Otras Apps', icon: <AppWindow size={16} />, desc: 'JO-PDF, Chrome...' },
-      { id: 'office', label: 'Office', icon: <FileText size={16} />, desc: 'Suite' },
-    ],
-  },
-  {
-    label: 'Sistema',
-    items: [
-      { id: 'windows', label: 'Windows', icon: <Monitor size={16} />, desc: 'SFC / DISM' },
-      { id: 'network', label: 'Red', icon: <Network size={16} />, desc: 'IP / DNS' },
-      { id: 'utilities', label: 'Utilidades', icon: <Wrench size={16} />, desc: 'Limpieza' },
-      { id: 'uninstaller', label: 'Desinstalador', icon: <Trash2 size={16} />, desc: 'Limpieza profunda' },
-    ],
-  },
-  {
-    label: 'Config',
-    items: [
-      { id: 'settings', label: 'Ajustes', icon: <Settings size={16} />, desc: 'Preferencias' },
-    ],
-  },
-];
+  const renderItem = (item: NavItem) => {
+    const active = currentPage === item.id;
+    const Icon = item.icon;
+    const badge = item.id === 'install' && installingCount > 0 ? installingCount : null;
+    return (
+      <button
+        key={item.id}
+        onClick={() => onNavigate(item.id)}
+        title={collapsed ? item.label : undefined}
+        className={cx(
+          'group relative w-full flex items-center gap-3 rounded-xl text-left transition-all duration-150',
+          collapsed ? 'h-10 justify-center' : 'h-10 px-2.5',
+          active ? 'bg-surface text-fg shadow-card ring-1 ring-line' : 'text-muted hover:text-fg hover:bg-surface/60',
+        )}
+      >
+        {active && <span className="absolute -left-3 top-2.5 bottom-2.5 w-[3px] rounded-r-full bg-accent" />}
+        <Icon size={17} strokeWidth={active ? 2.2 : 1.8} />
+        {!collapsed && (
+          <span className="flex-1 min-w-0">
+            <span className={cx('block text-[13px] leading-4 truncate', active ? 'font-semibold' : 'font-medium')}>{item.label}</span>
+          </span>
+        )}
+        {badge !== null && (
+          <span className={cx(
+            'grid place-items-center min-w-[18px] h-[18px] px-1 rounded-full bg-accent text-white text-[10px] font-semibold tabular-nums',
+            collapsed && 'absolute top-1 right-1',
+          )}>
+            {badge}
+          </span>
+        )}
+      </button>
+    );
+  };
 
-export function Sidebar({ currentPage, onNavigate, loading, onRefresh }: SidebarProps) {
+  const initials = (computerName || 'PC').replace(/[^A-Za-z0-9]/g, '').slice(0, 2).toUpperCase() || 'PC';
+
   return (
-    <aside className="w-[238px] shrink-0 bg-white border-r border-slate-200 flex flex-col">
-      {/* Nav agrupado */}
-      <nav className="flex-1 py-3 px-3 space-y-4 overflow-y-auto">
-        {menuGroups.map(group => (
+    <aside
+      className={cx(
+        'shrink-0 flex flex-col bg-surface-2/50 border-r border-line transition-[width] duration-200',
+        collapsed ? 'w-[68px]' : 'w-[232px]',
+      )}
+    >
+      <nav className="flex-1 overflow-y-auto overflow-x-hidden px-3 py-4 space-y-5">
+        {NAV.map(group => (
           <div key={group.label} className="space-y-1">
-            <p className="px-2 py-1 text-[9px] font-semibold tracking-widest text-slate-400 uppercase font-mono">
-              {group.label}
-            </p>
-            <div className="space-y-1">
-              {group.items.map(item => {
-                const active = currentPage === item.id;
-                return (
-                  <button
-                    key={item.id}
-                    onClick={() => onNavigate(item.id)}
-                    className={`w-full flex items-center gap-3 px-3 py-2 rounded-xl text-left transition-all border ${
-                      active
-                        ? 'bg-slate-900 text-white border-slate-900 shadow-sm'
-                        : 'bg-white text-slate-700 border-transparent hover:bg-slate-50 hover:border-slate-200'
-                    }`}
-                  >
-                    <span
-                      className={`w-7 h-7 grid place-items-center rounded-lg shrink-0 ${
-                        active ? 'bg-white/10 text-white' : 'bg-slate-100 text-slate-600'
-                      }`}
-                    >
-                      {item.icon}
-                    </span>
-                    <span className="min-w-0 flex-1">
-                      <span
-                        className={`block text-[13px] font-medium leading-none ${
-                          active ? 'text-white' : 'text-slate-900'
-                        }`}
-                      >
-                        {item.label}
-                      </span>
-                      <span
-                        className={`block text-[11px] leading-none mt-1 ${
-                          active ? 'text-white/60' : 'text-slate-500'
-                        }`}
-                      >
-                        {item.desc}
-                      </span>
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
+            {collapsed ? (
+              <div className="mx-auto w-5 h-px bg-line mb-2" />
+            ) : (
+              <p className="eyebrow px-2.5 pb-1.5">{group.label}</p>
+            )}
+            {group.items.map(renderItem)}
           </div>
         ))}
       </nav>
 
-      {/* Footer minimal */}
-      <div className="p-3 border-t border-slate-200 space-y-2">
+      <div className="p-3 space-y-2 border-t border-line">
+        {renderItem(NAV_FOOTER)}
+
+        {/* Tarjeta del equipo */}
+        {!collapsed ? (
+          <div className="rounded-xl bg-surface border border-line p-2.5">
+            <div className="flex items-center gap-2.5">
+              <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-indigo-500 to-violet-600 text-white grid place-items-center text-[11px] font-bold shrink-0">
+                {initials}
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="text-[12.5px] font-semibold text-fg truncate">{computerName || 'Equipo'}</p>
+                <p className="text-[11px] text-muted truncate flex items-center gap-1">
+                  {isAdmin ? <ShieldCheck size={11} className="text-emerald-500" /> : <ShieldAlert size={11} className="text-amber-500" />}
+                  {username || '—'}
+                </p>
+              </div>
+              <button
+                onClick={onRefresh}
+                disabled={loading}
+                title="Volver a analizar el equipo"
+                className="w-7 h-7 grid place-items-center rounded-lg text-muted hover:text-fg hover:bg-surface-2 disabled:opacity-50"
+              >
+                <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
+              </button>
+            </div>
+          </div>
+        ) : (
+          <button
+            onClick={onRefresh}
+            disabled={loading}
+            title="Volver a analizar el equipo"
+            className="w-full h-10 grid place-items-center rounded-xl text-muted hover:text-fg hover:bg-surface/60 disabled:opacity-50"
+          >
+            <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
+          </button>
+        )}
+
         <button
-          onClick={onRefresh}
-          disabled={loading}
-          className="w-full inline-flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl bg-white border border-slate-200 text-[12px] font-medium text-slate-700 hover:bg-slate-50 hover:border-slate-300 transition-colors disabled:opacity-50 shadow-sm"
+          onClick={() => setSidebarCollapsed(!collapsed)}
+          className={cx('w-full h-8 flex items-center gap-2 rounded-lg text-[12px] text-subtle hover:text-fg hover:bg-surface/60 transition-colors', collapsed ? 'justify-center' : 'px-2.5')}
+          title={collapsed ? 'Expandir menú' : 'Contraer menú'}
         >
-          <RefreshCw size={13} className={loading ? 'animate-spin' : ''} />
-          {loading ? 'Analizando...' : 'Actualizar diagnóstico'}
+          {collapsed ? <PanelLeftOpen size={15} /> : <><PanelLeftClose size={15} /> Contraer</>}
         </button>
-        <p className="text-center text-[10px] text-slate-400">SamirTechTools · v1.0.0</p>
       </div>
     </aside>
   );
