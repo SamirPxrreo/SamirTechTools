@@ -1,6 +1,6 @@
 # SamirTechTools
 
-Aplicación de escritorio para técnicos de soporte informático. Centro de diagnóstico, mantenimiento y herramientas para Windows.
+Aplicación de escritorio para técnicos de soporte informático. Centro de diagnóstico, mantenimiento e instalación de programas para Windows 10/11.
 
 ![Stack](https://img.shields.io/badge/Electron-React-TypeScript-blue)
 ![Release](https://img.shields.io/github/v/release/SamirPxrreo/SamirTechTools)
@@ -15,23 +15,20 @@ Abre PowerShell y pega esto — descarga la última versión y ejecuta la app au
 irm https://raw.githubusercontent.com/SamirPxrreo/SamirTechTools/main/get.ps1 | iex
 ```
 
-**¿Qué hace exactamente?**
 1. Consulta la última versión publicada en [Releases](https://github.com/SamirPxrreo/SamirTechTools/releases)
-2. Descarga el portable (si ya lo descargó antes, usa el cache y no re-descarga)
-3. Lo extrae y ejecuta SamirTechTools
+2. Descarga el portable (si ya lo tenía, usa la caché)
+3. Lo ejecuta
 
-> Requiere internet solo la primera vez. La app en sí funciona offline.
-
----
+> Requiere internet solo la primera vez. La app en sí funciona offline (salvo las descargas).
 
 ## 📦 Descargas manuales
 
-Ve a la sección [Releases](https://github.com/SamirPxrreo/SamirTechTools/releases) y elige:
+En [Releases](https://github.com/SamirPxrreo/SamirTechTools/releases):
 
 | Archivo | Qué es | Cuándo usarlo |
 |---|---|---|
-| `SamirTechTools-Setup-x.x.x.exe` | **Instalador** — se instala en el equipo con accesos directos (Escritorio + Menú Inicio) y aparece en "Agregar o quitar programas" | Para tu PC o PCs de clientes que usarán la app seguido |
-| `SamirTechTools-x.x.x-Portable.zip` | **Portable** — solo descomprime y ejecuta, no instala nada | Para llevar en USB y usar en cualquier PC sin dejar rastro |
+| `SamirTechTools-Setup-x.x.x.exe` | **Instalador**: accesos directos, aparece en «Agregar o quitar programas» y **se actualiza solo** | Tu PC o PCs de clientes que la usarán seguido |
+| `SamirTechTools-Portable-x.x.x.exe` | **Portable**: ejecuta sin instalar | USB / cualquier PC sin dejar rastro |
 
 ---
 
@@ -39,24 +36,24 @@ Ve a la sección [Releases](https://github.com/SamirPxrreo/SamirTechTools/releas
 
 | Módulo | Descripción |
 |---|---|
-| **Diagnóstico** | CPU, RAM, GPU, discos, red y Windows (info estática, 0% en segundo plano, sin polling) + reporte en TXT |
-| **Windows** | SFC, DISM, CHKDSK, Windows Defender (panel integrado), reparación de Defender |
-| **Activación** | Abre Massgrave (MAS) — Windows y Office, eliges el método en su menú |
-| **Office** | Instalación **Online** (365/2024/2021/2019 con XML generado automáticamente) y **Offline** (ISO descargada y montada automáticamente), activación y reparación |
-| **Navegadores** | Chrome, Edge, Firefox, Opera, Brave — descarga e instalación |
-| **Drivers** | Detección por categoría (GPU, audio, red, chipset...) |
-| **Utilidades** | Limpieza de temporales, info del sistema, servicios, red |
-| **ChrisTitusTech** | Ejecuta Winutil al vuelo o descarga `winutil.ps1` para usarlo offline |
-| **Desinstalador** | Multi-selección + iconos reales (DisplayIcon/app.getFileIcon), eliminación total de rastros |
-| **Logs** | Registro de actividad en pantalla + guardado en `%APPDATA%\SamirTechTools\logs` |
+| **Diagnóstico** | CPU, RAM, GPU, discos, red y Windows (info estática, 0 % en segundo plano) + reporte .txt al Escritorio |
+| **Instalar apps** | Catálogo de ~235 apps vía WinGet con progreso en vivo, selección múltiple y cola |
+| **Otras apps** | Chrome (MSI), **OpenCode CLI**, **WinRAR + Activación**, JO-PDF, Obsidian, AB Download Manager, AionUi |
+| **Office** | Instalación online (365/2024/2021/2019/2016) y offline (ISO automática), activación y reparación |
+| **Windows** | SFC, DISM, CHKDSK, Windows Update, Defender (panel integrado), activación con MAS |
+| **Red** | Ping, tracert, nslookup, ipconfig, DNS, ARP |
+| **Utilidades** | Limpieza de temporales, herramientas del sistema, enlaces de ISOs |
+| **Desinstalador** | Multi-selección, iconos reales, punto de restauración y eliminación de rastros |
+| **Ajustes** | Tema claro/oscuro/sistema, diagnóstico automático, menú compacto, «Preguntar dónde guardar» |
+
+Las opciones que guardan archivos crean sus carpetas solas (`C:\Office`, `C:\OfficeISO`, `C:\ExtraApps`). El registro de actividad se guarda en `%APPDATA%\SamirTechTools\logs`.
 
 ---
 
 ## 💻 Desarrollo
 
 ### Requisitos
-- Node.js 20 LTS recomendado ([nodejs.org](https://nodejs.org)) — Node 18+ mínimo, evitar Node 26
-- Git: https://git-scm.com/downloads
+- Git y Node.js 20 LTS ([nodejs.org](https://nodejs.org)); con Node 26 puede fallar el `postinstall` de Electron.
 
 ### Primera vez en una PC nueva
 ```powershell
@@ -65,80 +62,45 @@ cd SamirTechTools
 npm install
 npm run electron:dev
 ```
-> No clonar en `C:\` directo (da problemas de permisos con Electron). Usar `Desktop` o `Documents`. Guía completa en `GUIA_SINCRONIZACION.md`.
+> No clonar en la raíz de `C:\`. Falta a propósito `resources\winrar\rarreg.key` (licencia, no está en Git): cópiala ahí para compilar con «WinRAR + Activación». Guía completa de sincronización en [`GUIA_SINCRONIZACION.md`](../GUIA_SINCRONIZACION.md).
 
-### Trabajo diario entre 2 PCs
-```powershell
-# Al empezar en la PC: bajar lo nuevo
-git pull
+### Comandos
+| Comando | Qué hace |
+|---|---|
+| `npm run electron:dev` | App en modo desarrollo (hot reload) |
+| `npx vite --host 127.0.0.1` | Solo la interfaz en el navegador, con datos simulados |
+| `npm run typecheck` | Revisa tipos |
+| `.\scripts\build-admin.ps1` | Compila instalador + portable (pide aviso de administrador) → `release\` |
+| `.\scripts\publish-release.ps1` | Publica la release de la versión de `package.json` en GitHub |
 
-# Al terminar: subir lo que hiciste
-git add .
-git commit -m "describe tu cambio"
-git push
-```
-
-### Ejecutar en modo desarrollo
-```powershell
-npm install           # una sola vez por PC
-npm run electron:dev  # abre la app con hot-reload (requiere --dev flag en package.json)
-```
-
-### Compilar
-```powershell
-npm run electron:installer  # Instalador NSIS
-npm run electron:portable   # Portable
-npm run electron:build      # Ambos
-```
-
-Los ejecutables quedan en `release/`.
+### Publicar una versión
+1. Subir versión en `package.json`, `package-lock.json` y `src/config/constants.ts`; escribir `docs/release-notes/vX.Y.Z.md`
+2. `git add -A; git commit; git push`
+3. `.\scripts\build-admin.ps1` y después `.\scripts\publish-release.ps1`
 
 ---
 
-## 📁 Estructura del proyecto
-
+## 📁 Estructura
 ```
 SamirTechTools/
-├── electron/               # Proceso principal de Electron
-│   ├── main.cjs            #   IPC, PowerShell, descargas con progreso, ISOs
-│   └── preload.cjs         #   Context bridge (seguridad)
-├── src/                    # Interfaz (React + TypeScript)
-│   ├── config/
-│   │   └── constants.ts    # ★ URLs, rutas y XML de Office centralizados
-│   ├── components/         # Componentes reutilizables (ToolCard, Sidebar...)
-│   ├── pages/              # Una página por sección (11 páginas)
-│   ├── context/            # Estado global (logs)
-│   ├── types/              # Interfaces TypeScript
-│   └── utils/              # Helpers de formato
-├── resources/              # Binarios externos incluidos en el instalador
-│   └── defender-control/   #   dControl.exe (Sordum v2.1)
-├── docs/                   # Documentación
-│   ├── CONTEXTO.md         # ★ Contexto técnico completo (leer antes de modificar)
-│   └── README.md           # Este archivo
-├── get.ps1                 # Lanzador web (instalación con un comando)
-├── dist/                   # Build compilado (generado, no editar)
-└── release/                # Ejecutables finales (generado)
+├── electron/      # main.cjs (IPC, PowerShell, descargas), preload.cjs
+├── src/           # Interfaz React + TypeScript (pages, components, context, config, utils)
+├── public/        # Logo (icon.svg → icon.png / icon.ico, fondo transparente)
+├── resources/     # defender-control/ (Sordum) · winrar/ (licencia local, no en Git)
+├── scripts/       # build-admin.ps1 · publish-release.ps1 · build-icons.cjs
+├── docs/          # CONTEXTO.md (★ leer antes de modificar) · README.md · release-notes/
+├── AGENTS.md      # Reglas para IAs
+└── get.ps1        # Lanzador web de una línea
 ```
 
-> **★ Para IAs / nuevos desarrolladores:** leer `docs/CONTEXTO.md` antes de modificar el código —
-> contiene la arquitectura, decisiones técnicas importantes y solución de problemas conocidos.
-
----
-
-## 📝 Publicar una nueva versión
-
-1. Compilar: `npm run electron:build`
-2. Subir código: `git add -A && git commit -m "..." && git push`
-3. Crear release en GitHub con los nuevos `.exe` adjuntos
+> **★ Para IAs / nuevos desarrolladores:** leer [`docs/CONTEXTO.md`](CONTEXTO.md) y [`AGENTS.md`](../AGENTS.md) antes de modificar el código.
 
 ---
 
 ## ⚠️ Notas
-
-- Algunas funciones requieren **ejecutar como administrador** (SFC, DISM, Defender, activación)
-- La activación usa herramientas de terceros ([Massgrave](https://massgrave.dev), [ChrisTitus Tech](https://christitus.com)) que se descargan al vuelo — siempre la última versión
-- Windows Defender puede marcar falsos positivos con las herramientas de activación/Defender Control; son herramientas conocidas de código abierto
+- Algunas funciones piden **permisos de administrador** (SFC, DISM, Defender, activación): la app abre sin admin y solo eleva donde hace falta.
+- La activación usa herramientas de terceros ([Massgrave](https://massgrave.dev)) que se descargan al vuelo.
+- Windows Defender/SmartScreen puede dar falsos positivos con las herramientas de activación y Defender Control; el ejecutable no está firmado.
 
 ## 📄 Licencia
-
 Uso personal del autor.

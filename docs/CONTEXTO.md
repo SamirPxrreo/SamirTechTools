@@ -1,138 +1,182 @@
 # Contexto del Proyecto SamirTechTools (para cualquier IA que continúe)
 
-## Nombre de la app
-**SamirTechTools** (antes "M&M Informática" / "SamirTechFix")
+> **Léeme primero.** Este archivo es la fuente de verdad del proyecto. Si algo del código contradice este documento, el código manda: corrige el documento en el mismo cambio.
+> Última actualización: **21/11/2026 — versión 1.1.0**.
 
-## Descripción
-Aplicación de escritorio para técnicos de soporte informático. Centro de diagnóstico, mantenimiento e instalación de programas para Windows. Inspirada en [ChrisTitus Tech's winutil](https://github.com/christitustech/winutil).
+## 1. Qué es
+**SamirTechTools** (antes «M&M Informática» / «SamirTechFix»): app de escritorio para técnicos de soporte informático. Centro de diagnóstico, mantenimiento e instalación de programas para **Windows 10/11**. Inspirada en [winutil de ChrisTitusTech](https://github.com/christitustech/winutil).
 
-## Dónde está el proyecto
-- **GitHub:** https://github.com/SamirPxrreo/SamirTechTools (rama `main`)
-- **Repositorio local:** **NO hay ruta predeterminada.** Al iniciar un chat la IA **DEBE preguntar** al usuario *"¿Dónde quieres alojar/clonar el proyecto en esta PC?"* y usar **exactamente** esa ruta (verificar con `pwd`/`Get-Location`). Nunca asumir `Desktop`, `Documents` o `C:\` por defecto.
-- **Flujo multi-PC (Casa / Trabajo):** ver `GUIA_SINCRONIZACION.md` en la raíz. Resumen: `git pull` al empezar, `git add . && git commit -m "..." && git push` al terminar.
-- **Git ya configurado:** el token de GitHub está guardado en `%USERPROFILE%\.git-credentials` (credential.helper store). Usuario: `SamirPxrreo`. Solo hacer `git push origin main`.
- - **Release v1.0.0 (actual, única):** los instaladores (`SamirTechTools-Setup-1.0.0.exe` ~67MB y `SamirTechTools-Portable-1.0.0.exe` ~67MB) están en la release `v1.0.0`. Se suben con `gh release upload v1.0.0 release\*.exe --clobber` (usa `GH_TOKEN` del `.git-credentials`). Fallback: `curl -k` con token.
+- **Repo (público):** https://github.com/SamirPxrreo/SamirTechTools — rama `main`
+- **Releases:** https://github.com/SamirPxrreo/SamirTechTools/releases (la última es `v1.1.0`)
+- **Lanzador de una línea:** `irm https://raw.githubusercontent.com/SamirPxrreo/SamirTechTools/main/get.ps1 | iex` (descarga el portable de la última release y lo ejecuta)
+- **Dueño:** usuario de GitHub `SamirPxrreo`. Trabaja en 2 PCs (casa/trabajo) sincronizadas con Git.
 
-## Stack tecnológico
-- **Electron** (ventana frameless, `contextIsolation`, sin nodeIntegration)
-- **React 18** + **TypeScript** + **Vite**
-- **Tailwind CSS** con tema claro/oscuro conmutable (Minimal Pro: `Outfit` + slate palette)
-- **PowerShell** para comandos del sistema
+## 2. Si estás en una PC nueva (guía rápida para una IA)
+1. **Pregunta al usuario dónde quiere el proyecto** y usa exactamente esa ruta (no asumas `Desktop`, `C:\`, etc.). No clones en la raíz de `C:\` (problemas de permisos con Electron).
+2. Requisitos: **Git** y **Node.js** (20 LTS recomendado; con Node 26 se pudo compilar pero el `postinstall` de Electron puede bloquearse, ver §12).
+3. `git clone https://github.com/SamirPxrreo/SamirTechTools.git` → `cd SamirTechTools` → `npm install` → `npm run electron:dev`.
+4. **Falta un archivo a propósito:** `resources/winrar/rarreg.key` (licencia de WinRAR) **no está en Git**. Sin él la app funciona, pero «WinRAR + Activación» falla y el instalador sale sin licencia. Pídeselo al usuario y cópialo ahí (ver §9).
+5. Para ver cómo funciona todo: lee este archivo; para el flujo Git entre PCs, `GUIA_SINCRONIZACION.md`; reglas cortas para IAs en `AGENTS.md`.
+6. Opcional: un mapa del código con [graphify](https://github.com/Graphify-Labs/graphify) (`uv tool install --python 3.12 graphifyy`, luego `/graphify .`). Genera `graphify-out/`, que está en `.gitignore` (se regenera por PC).
 
-## Arquitectura
+## 3. Stack
+- **Electron 31** (ventana sin marco `frame:false`, `contextIsolation`, sin `nodeIntegration`) + `electron-updater` (actualizador automático vía GitHub Releases)
+- **React 18 + TypeScript + Vite 5**
+- **Tailwind CSS 3** con tokens de diseño propios (§6) · iconos `lucide-react` · fuentes `@fontsource-variable/inter` y `jetbrains-mono` (locales)
+- **PowerShell** para casi todo lo del sistema (CIM/WMI, winget, registro)
+- Empaquetado: **electron-builder** → NSIS (instalador) + portable, en `release/`
 
-### Comunicación Electron ↔ React
-- `electron/main.cjs` → proceso principal (CJS). Todos los IPC handlers aquí.
-- `electron/preload.cjs` → contextBridge expone `window.electronAPI`
-- `src/types/index.ts` → interfaz `ElectronAPI` que debe mantenerse sincronizada con preload
-- **NUNCA** usar `exec()` con scripts de PowerShell inline que contengan `$_` — usar la función `ps()` que usa `execFile`
-
-### Sistema de diseño (rediseño noviembre 2026)
-- **Tokens semánticos** en `src/index.css` como canales RGB (`--bg --surface --surface-2 --elevated --line --line-strong --fg --muted --subtle --accent --accent-fg --accent-soft --console`) para `:root` (claro) y `[data-theme='dark']` (oscuro, **predeterminado**). `tailwind.config.js` los expone como clases: `bg-surface`, `text-fg`, `text-muted`, `border-line`, `bg-accent/10`, etc. **Usar SIEMPRE estos tokens**, nunca `slate-*`/`neutral-*`/`dark-*` para superficies o texto (ya no hay overrides `!important`).
-- `darkMode: ['class','[data-theme="dark"]']` → se puede usar `dark:` para colores de acento (p. ej. `text-emerald-600 dark:text-emerald-300`).
-- **Fuentes locales** (sin internet): `@fontsource-variable/inter` (UI) y `@fontsource-variable/jetbrains-mono` (consola/IDs).
-- **Componentes base** en `src/components/ui.tsx` (exportados desde `components/index.ts`): `Button`, `IconButton`, `Badge`, `IconTile`, `PageHeader`, `Section`, `Grid`, `Notice`, `EmptyState`, `SearchInput`, `Select`, `Checkbox`, `Switch`, `Tabs`, `Chip`, `Modal`, `KeyValue`, `Spinner`, `cx()`. Tonos: `indigo emerald amber red violet cyan orange pink teal sky slate` (alias antiguos `blue/green/yellow/purple` siguen funcionando).
-- `ToolCard` solo pinta botones que tienen `onClick` (no más botones muertos); `accentColor="red"` = botón primario rojo.
-- `ConsoleOutput` siempre oscura, con botón copiar; `ConfirmModal` usa `Modal` (Escape cierra, respeta saltos de línea).
-- **Preferencias** en `src/context/PrefsContext.tsx` (localStorage): `stt-theme` (light/dark/system), `stt-sidebar-collapsed`, `stt-autodiag`, `stt-log-open`. Se editan en Ajustes.
-- **Navegación** centralizada en `src/config/nav.tsx` (Sidebar + breadcrumb del Header).
-- Header = barra de título **arrastrable** (`.drag` / `.no-drag`, `-webkit-app-region`) con controles estilo Windows 11.
-- **Preview en navegador**: `npx vite` y abrir `http://127.0.0.1:5173` → `src/dev/mockElectron.ts` simula `window.electronAPI` (solo en DEV, no entra al build).
- - Logo circular ST: `public/icon.png` (512x512 12KB, slate-900/indigo) + `public/icon.ico` (32KB) + `public/logo.jpg` (35KB legacy). `Header.tsx` usa `import appIcon from '/icon.png'` (Vite, no titileo) y `BrowserWindow` usa `resources/icon.png/.ico` para ventana/taskbar.
-
-### Navegación
-- Sidebar izquierdo (`src/components/Sidebar.tsx`) con las secciones; Header arriba solo con logo/estado/tema/controles de ventana
-- Las páginas se registran en 3 lugares: `src/types/index.ts` (unión `Page`), `src/components/Sidebar.tsx` (menú), `src/App.tsx` (switch de render)
-- Orden actual (27/08/2026): `dashboard` -> `install` (235 apps) -> `extra-apps` (JO-PDF/Chrome MSI/Obsidian/AionUi) -> `office` -> `windows` -> `utilities` -> `network` -> `uninstaller` -> `settings` — `drivers` y `browsers` eliminados
-- `InstallContext` (`src/context/InstallContext.tsx`): persiste `statuses/liveOutputs/selected` entre cambios de menú y expone `cancelApp/cancelBatch` vía `winget-cancel` IPC
-
-### Encoding — IMPORTANTE
-- Todos los archivos son **UTF-8 sin BOM**. Hubo un problema histórico de doble codificación (mojibake "Ã³"), ya corregido
-- Al editar desde PowerShell, cuidado: la consola corrompe tildes/ñ. Para reemplazos con caracteres especiales usar scripts Node, no PowerShell inline
-
-## Funcionalidades implementadas
-
-### Diagnóstico (Dashboard)
-- CPU/RAM/GPU/discos/red/Windows vía CIM/WMI + `os.cpus()`/`os.totalmem` — **estático, sin polling** (0% background), carga progresiva tier1 (cpu/ram rápido) + tier2 (disco/gpu/windows/red en background)
-- **VRAM**: `Win32_VideoController.AdapterRAM` se limita a 4GB (uint32), así que la VRAM real se lee del registro `HKLM\...\0000` → `HardwareInformation.qwMemorySize` (Intel Arc 8GB), fallback `qpmemorySize`/`memorySize`. Optimizado a 1 solo `ps()` + cache 10min
-- **Cache**: RAM módulos 10min, GPU/Windows 10min, disco/red 30s, Network 1 solo PS (antes 6), temp CPU 30s
-- **SystemCard**: texto `select-text` para copiar con menú nativo (click derecho), `break-words` + `col-span-2` para placa base larga
-- Generador de reporte .txt al Escritorio
-
-### Instalar Apps (páginas `install` + `extra-apps`)
-- **235 apps** catálogo en `src/data/apps.ts` (winutil + extras) — `Instalar Apps` usa WinGet con **progreso en vivo** (`spawn` + `winget-progress` → `InstallPage.tsx`)
-- IPC `winget-install` resuelve `Get-Command winget` (fix para exe empaquetado), timeout 15 min, sin `--silent` para ver barra, `--source winget` evita `0x8a15005e`
-- **Otras Apps** (`ExtraAppsPage.tsx`): JO-PDF (direct `jopdf.com`), Obsidian (`winget Obsidian.Obsidian`), AionUi 2.1.44 (MediaFire) → `C:\ExtraApps`
-- **WinRAR + Activación**: `winget RARLAB.WinRAR` y luego IPC `winrar-activate` copia `rarreg.key` a la carpeta de WinRAR (registro `HKLM\SOFTWARE\WinRAR` → `Program Files\WinRAR` → `(x86)`). La licencia viaja con la herramienta: `resources/winrar/rarreg.key` (se empaqueta vía `extraResources` → `<app>/resources/winrar/`). **Está en `.gitignore` a propósito (repo público)**: hay que colocarla a mano en cada PC donde se compile. Origen/destino los fija `main.cjs` (la UI no pasa rutas); copia directa y, si falla por permisos, con UAC (`Start-Process -Verb RunAs`).
-- **Carpetas locales automáticas**: las opciones que guardan archivos (Office online → `C:\Office`, Office offline → `C:\OfficeISO`, Otras apps → `C:\ExtraApps`) crean su carpeta solas con el IPC `ensure-dir` (`src/utils/folders.ts → resolveDir`). Por defecto NO preguntan dónde guardar; se activa en Ajustes → «Preguntar dónde guardar» (`stt-ask-location`). El reporte .txt usa el Escritorio real (`get-path`, puede ser `D:\...` u OneDrive).
-- **OpenCode (CLI)**: IPC `install-opencode` = Node.js LTS (winget, si falta) → `Set-ExecutionPolicy` → `npm install -g @opencode/cli` (paquete oficial v2 según opencode.ai/docs; el antiguo `opencode-ai` es v1 y comparte el comando `opencode`, por eso se desinstala antes si existe).
-- Iconos: favicons `https://icons.duckduckgo.com/ip3/<dominio>.ico` (Google s2 no cargaba), cards con click en toda la área (fix logo download)
-- Selección múltiple con instalación en cola + modal de confirmación antes de instalar
-
-### Windows
-- SFC, DISM (check/scan/restore), CHKDSK, Windows Update
-- **Defender Control (Sordum)**: `resources/defender-control/dControl.exe` + `dControl.ini` incluidos (se empaquetan vía `extraResources` en package.json). SOLO abre la GUI como admin. **NO usar los exe de comandos de pgkt04/defender-control — le dañaron un Defender a un cliente.** Sordum bloquea descargas automatizadas (anti-bot), por eso va incluido en el repo
-- **MAS** (activación Windows/Office): `irm https://get.activated.win | iex` elevado
-
-### Office
-- **Online**: setup.exe de officecdn + Configuration.xml embebido en `src/config/constants.ts` (365, 2024, 2021, 2019)
-- **Office 2016 Pro Plus 32-bit**: descarga ZIP de Mediafire (~720 MB, URL en `constants.ts` → `OFFICE.OFFICE_2016`), lo extrae a `Escritorio\Office2016` y abre setup.exe elevado. **OJO: los enlaces directos de Mediafire expiran** — si falla, pedir el link nuevo al usuario y actualizar `constants.ts`
-- **Offline ISO**: descarga de c2rsetup, monta con `Mount-DiskImage`, instala, desmonta
-- Activación (MAS), reparación rápida/completa, desinstalación total (Office Scrubber)
-
-### Desinstalador
-- Lista todas las apps del registro (3 hive paths) con versión, editor, fecha de instalación (`InstallDate` formato `yyyyMMdd`), tamaño (`EstimatedSize` en KB), **DisplayIcon**
-- Iconos: IPC `get-app-icon` (usa `app.getFileIcon` con cache) - busca en `DisplayIcon` → `InstallLocation/*.exe` → `UninstallString`. `UninstallerPage.tsx` carga lazy con `<AppIcon>`
-- Filtros: búsqueda nombre/editor, rango de fecha (semana/mes/3 meses/año/más de un año), orden por nombre/fecha/tamaño
-- Desinstalación profunda: script PS elevado que hace MSI/winget/desinstalador original + limpia carpetas, registro, Run keys, servicios y accesos directos
-
-### Utilidades
-- Herramientas de sistema y red, **Descargas ISO** con link a UUP dump (`https://uupdump.net/known.php`)
-
-## Permisos de administrador
-- El ejecutable lleva manifest `requestedExecutionLevel: 'asInvoker'` (package.json → `build.win`, `signAndEditExecutable: false`) — **la app abre sin admin** como WinUtil, para que `winget --ignore-security-hash` no de `cannot be overridden when running as admin`. La elevación se pide solo donde hace falta (`SFC/DISM/Uninstall/clear-ram/Defender` usan `Start-Process -Verb RunAs`, `winget settings --enable InstallerHashOverride` también pide UAC una vez)
-- En dev (`npm run electron:dev`) nunca pide admin
-
-## Build y release
-```powershell
-npm run build            # solo compila frontend (tsc + vite)
-npm run electron:build   # instalador NSIS + portable en release/
+## 4. Estructura de carpetas
 ```
-- **El build de electron-builder falla sin admin** (winCodeSign usa symlinks). Ejecutarlo desde una PowerShell elevada:
-```powershell
-Start-Process powershell -Verb RunAs -Wait -ArgumentList '-Command','Set-Location "<ruta-que-indique-el-usuario>"; npm run electron:build'
+SamirTechTools/
+├── AGENTS.md                 # Reglas cortas para IAs (se carga solo en OpenCode/Claude/Codex)
+├── GUIA_SINCRONIZACION.md    # Flujo Git entre 2 PCs
+├── PROMPT_IA.md              # Prompt listo para pegar en un chat nuevo con una IA
+├── PROMPT_LOGO.md            # Prompts históricos de logo (el actual es vectorial, ver §7)
+├── get.ps1                   # Lanzador web de una línea
+├── index.html · vite.config.ts · tailwind.config.js · tsconfig*.json · postcss.config.js
+├── package.json              # versión, scripts y config de electron-builder ("build")
+├── docs/
+│   ├── CONTEXTO.md           # ESTE archivo
+│   ├── README.md             # Presentación pública (la que ve GitHub)
+│   ├── release-notes/vX.Y.Z.md   # Descripción de cada release (UTF-8)
+│   └── DESIGN_BACKUP_20250902.md # Histórico, obsoleto
+├── electron/
+│   ├── main.cjs              # Proceso principal: TODOS los IPC (≈1440 líneas)
+│   ├── preload.cjs           # contextBridge → window.electronAPI
+│   ├── utils/ps.cjs · validation.cjs   # Helpers ya extraídos (el resto sigue inline en main.cjs)
+│   └── handlers/README.md    # Plan de modularización (sin ejecutar)
+├── src/
+│   ├── main.tsx · App.tsx    # Entrada y layout (Header + Sidebar + página + LogPanel)
+│   ├── index.css             # Tokens de color claro/oscuro + utilidades
+│   ├── components/           # ui.tsx (kit base), ToolCard, SystemCard, Sidebar, Header, LogPanel, ConsoleOutput, ConfirmModal, StatusBadge/ProgressBar
+│   ├── pages/                # Dashboard, InstallPage, ExtraAppsPage, OfficePage, WindowsPage, NetworkPage, UtilitiesPage, UninstallerPage, SettingsPage
+│   ├── context/              # LogContext, InstallContext, PrefsContext
+│   ├── config/               # constants.ts (URLs/rutas/XML de Office/APP_VERSION) · nav.tsx (menú)
+│   ├── data/apps.ts          # Catálogo de apps de winget
+│   ├── types/index.ts        # Tipos + interfaz ElectronAPI (sincronizar con preload)
+│   ├── utils/                # index.ts (formatos) · folders.ts (resolveDir)
+│   └── dev/mockElectron.ts   # Simula window.electronAPI SOLO en navegador (DEV)
+├── public/                   # icon.svg (fuente), icon.png (512), icon.ico (16–256), logo.jpg (legacy sin uso)
+├── resources/
+│   ├── defender-control/     # dControl.exe + .ini de Sordum (versionado con git add -f)
+│   └── winrar/               # rarreg.key (NO en Git) + README.txt
+├── scripts/                  # build-admin.ps1 · publish-release.ps1 · build-icons.cjs (§10)
+├── dist/ · release/ · node_modules/ · graphify-out/   # generados, ignorados por Git
 ```
- - **GitHub CLI (`gh` 2.98+):** instalado en `C:\Program Files\GitHub CLI\gh.exe` y en PATH. Token `gho_...` con scopes `repo,workflow` (en credencial `git:https://github.com`). Para subir release: `gh release upload v1.0.0 release\*.exe --clobber` o `gh release create v1.0.0 release\*.exe --title v1.0.0`. Fallback: `curl -k` con token.
-- **Comando "sube todo a github" = SUBIR LO NECESARIO PARA QUE LOS EXES FUNCIONEN COMO EN EL CHAT:** cuando el usuario diga "sube todo a github" subir `git add` + `commit` + `push` de lo cambiado, y si cambió `src/`/`electron/`/`resources/` además `npm run electron:build` + `gh release upload v1.0.0 release\*.exe --clobber`. Si solo `*.md`/`docs`, basta `git push`. Versionado (semver): `1.0.1` = solo arreglos, `1.1.0` = funciones nuevas compatibles, `2.0.0` = cambio grande/incompatible. Al subir versión cambiar `package.json` (+ `package-lock.json`) y `APP_VERSION` en `src/config/constants.ts`, y crear una release nueva `vX.Y.Z` con los `.exe` **y `latest.yml`** (lo necesita el actualizador automático).
-- Versión actual: **1.1.0** (rediseño completo "pro dark" + WinRAR+Activación + OpenCode `@opencode/cli` + carpetas automáticas + Ajustes funcionales). Compilada 21/11/2026 (`Setup-1.1.0.exe` ~65.9MB, `Portable-1.1.0.exe` ~65.7MB). La v1.0.0 fue: Minimal Pro + logo ST circular + dControl + asInvoker + winget hash fix + InstallContext persistente.
-- **Compilar**: `npm run electron:build` falla sin admin (symlinks de winCodeSign, `signAndEditExecutable: true` para incrustar el icono). Se lanzó con un `.ps1` elevado que escribe un log; con UAC aceptado termina con `EXIT=0`.
+> `src/pages/BrowsersPage.tsx` y `DriversPage.tsx` son **código muerto** (no se exportan ni están en el menú; usan clases antiguas). Se pueden borrar.
 
-## Sincronización y entorno de desarrollo
-- Ver `GUIA_SINCRONIZACION.md` para el flujo completo entre PCs.
-- **Node.js requerido:** 18+ pero recomendado **20 LTS**. Node 26 bloquea el postinstall de Electron (`install scripts blocked`) y requiere descarga manual del binario.
-- **Ubicación:** preguntar al usuario dónde quiere alojar/clonar el proyecto. No asumir ninguna ruta.
-- **Script dev:** `npm run electron:dev` debe ser `concurrently "vite" "wait-on http://localhost:5173 && electron . --dev"` — el flag `--dev` hace que `electron/main.cjs` cargue `http://localhost:5173` en lugar de `dist/index.html`.
-- Si `node_modules/electron/dist` solo contiene `locales`, descargar manualmente:
+## 5. Arquitectura Electron ↔ React
+- `electron/main.cjs` registra los `ipcMain.handle/on`; `electron/preload.cjs` los expone como `window.electronAPI`; `src/types/index.ts` declara la interfaz `ElectronAPI`. **Al añadir un IPC hay que tocar los TRES archivos** (y `src/dev/mockElectron.ts`, que tipa contra `ElectronAPI` y no compila si falta).
+- **Nunca** ejecutar PowerShell inline con `$_` usando `exec()`: usar `ps()` (`execFile`, en `utils/ps.cjs`).
+- IPC actuales (47): `append-log, check-admin, check-for-updates, clear-ram, create-restore-point, defender-tool, download-file, download-update, ensure-dir, execute-tool, get-all-apps, get-app-icon, get-arch, get-computer-name, get-cpu-info, get-disk-info, get-drivers, get-gpu-info, get-installed-apps, get-live-stats, get-network-info, get-path, get-platform, get-processes, get-ram-info, get-services, get-uptime, get-username, get-windows-info, install-opencode, mount-iso, open-external, open-path, run-command, run-commands, select-directory, show-item-in-folder, uninstall-apps, unmount-iso, window-close/maximize/minimize, winget-cancel, winget-install, winget-list, winrar-activate, write-file`.
+- Eventos hacia la UI: `winget-progress`, `winget-progress-pct`, `command-progress`, `download-progress`.
+- **Seguridad:** las rutas/URLs que llegan de la UI pasan por `sanitizePath`/`isValidUrl`/`isValidWingetId`. Los IPC privilegiados (p. ej. `winrar-activate`) fijan ellos mismos origen y destino; la UI no pasa rutas.
+
+## 6. Sistema de diseño (rediseño de noviembre 2026)
+- Estilo «pro dark» (tipo Linear/Raycast) + tema claro pulido. Oscuro por defecto. Acento índigo (`#4f46e5`/`#6d6af5`), tipografía Inter.
+- **Tokens** en `src/index.css` como canales RGB: `--bg --surface --surface-2 --elevated --line --line-strong --fg --muted --subtle --accent --accent-fg --accent-soft --console`, definidos para `:root` (claro) y `[data-theme='dark']`. `tailwind.config.js` los expone: `bg-surface`, `text-fg`, `text-muted`, `border-line`, `bg-accent/10`…
+- **Regla:** usar SIEMPRE estos tokens. No usar `slate-*`, `neutral-*` ni `dark-*` para superficies/texto (ya no hay overrides `!important`; `dark-*`/`primary-*` solo existen como alias de compatibilidad). Para colores de acento sí: `text-emerald-600 dark:text-emerald-300`.
+- **Kit base** `src/components/ui.tsx` (reexportado en `components/index.ts`): `Button, IconButton, Badge, IconTile, PageHeader, Section, Grid, Notice, EmptyState, SearchInput, Select, Checkbox, Switch, Tabs, Chip, Modal, KeyValue, Spinner, cx`. Tonos: `indigo emerald amber red violet cyan orange pink teal sky slate` (alias `blue/green/yellow/purple`).
+- `ToolCard` solo pinta botones con `onClick`; `accentColor="red"` = botón primario rojo. `ConsoleOutput` siempre oscura, con botón copiar. `ConfirmModal` usa `Modal` (Esc cierra, respeta saltos de línea).
+- **Layout:** `Header` = barra de título **arrastrable** (`.drag`/`.no-drag`) con controles estilo Windows 11 y breadcrumb; `Sidebar` plegable (232 px / 68 px) con tarjeta del equipo; `LogPanel` plegable que muestra la última entrada.
+- **Navegación centralizada** en `src/config/nav.tsx`. Una página nueva se registra en 3 sitios: unión `Page` en `src/types/index.ts`, `nav.tsx` y el `switch` de `App.tsx` (+ export en `pages/index.ts`).
+- **Preferencias** (`PrefsContext`, localStorage): `stt-theme` (light/dark/system), `stt-sidebar-collapsed`, `stt-autodiag`, `stt-log-open`, `stt-ask-location`. Se editan en Ajustes.
+- **Preview en navegador sin Electron:** `npx vite --host 127.0.0.1` → `http://127.0.0.1:5173` (usa `mockElectron.ts` con datos falsos; no entra al build). Ojo: Vite se cae si vigila `release/` mientras se compila.
+
+## 7. Logo e iconos
+- Logo «ST»: cuadrado redondeado, degradado índigo→violeta, monograma blanco, **fondo 100 % transparente** (el anterior tenía cuadrado blanco y se veía mal en la barra de tareas). Fuente vectorial: `public/icon.svg`.
+- `public/icon.png` (512) y `public/icon.ico` (10 tamaños 16–256, PNG con alfa) se generan con `node scripts/build-icons.cjs` (requiere `npm install --no-save sharp`). El ICO **debe** incluir 256 px (electron-builder).
+- Uso: `Header`/`SettingsPage` importan `/icon.png`; `BrowserWindow` usa `icon.png` (en el paquete: `resources/icon.png` vía `extraResources`); el `.exe`/instalador usan `icon.ico` (`build.win.icon`, requiere `signAndEditExecutable: true`).
+- Windows cachea iconos: tras cambiar el logo puede seguir viéndose el viejo en accesos directos hasta reiniciar el Explorador.
+
+## 8. Funcionalidades
+
+### Diagnóstico (`Dashboard`)
+- CPU/RAM/GPU/discos/red/Windows por CIM/WMI + `os.cpus()`/`os.totalmem`. **Estático, sin polling (0 % en segundo plano).** Carga progresiva: tier 1 (CPU/RAM, rápido) y tier 2 (disco/GPU/Windows/red en segundo plano). «Diagnóstico automático» se puede apagar en Ajustes.
+- **VRAM:** `AdapterRAM` se capa a 4 GB (uint32), así que se lee del registro (`HKLM\…\0000` → `HardwareInformation.qwMemorySize`, respaldo `qpmemorySize`/`memorySize`).
+- **Caché:** módulos RAM 10 min, GPU/Windows 10 min, disco/red 30 s, temperatura CPU 30 s; red en 1 solo PowerShell.
+- **Reporte .txt** al Escritorio **real** (IPC `get-path`; puede estar en `D:\…` u OneDrive, no asumir `C:\Users\<u>\Desktop`).
+
+### Instalar apps (`InstallPage`)
+- Catálogo `src/data/apps.ts` (≈235 apps de winutil + extras) vía **winget con progreso en vivo** (`spawn` → `winget-progress`).
+- IPC `winget-install` resuelve `winget` (fix del exe empaquetado), timeout 15 min, sin `--silent` (para ver la barra), `--source winget` evita `0x8a15005e`; reintento con `--ignore-security-hash` si falla el hash.
+- Selección múltiple con cola y confirmación; `InstallContext` persiste estados/salidas al cambiar de menú y expone `cancelApp/cancelBatch` (`winget-cancel`). Iconos por favicon de DuckDuckGo (si no existe, la inicial).
+
+### Otras apps (`ExtraAppsPage`)
+- Google Chrome (MSI offline), **OpenCode CLI**, **WinRAR + Activación**, JO-PDF, Obsidian, AB Download Manager, AionUi 2.1.44. Las «Descarga» van a `C:\ExtraApps` y se abren como administrador.
+- **OpenCode (CLI)** — IPC `install-opencode`: Node.js LTS por winget (si falta) → `Set-ExecutionPolicy` (RemoteSigned usuario + Bypass proceso) → `npm install -g @opencode/cli`. Es el paquete **oficial v2** según opencode.ai/docs; el antiguo `opencode-ai` (v1) comparte el comando `opencode`, por eso se desinstala antes si existe (si no, npm da EEXIST).
+- **WinRAR + Activación** — `winget RARLAB.WinRAR` y luego IPC `winrar-activate`: copia `rarreg.key` a la carpeta de WinRAR (registro `HKLM\SOFTWARE\WinRAR` → `Program Files\WinRAR` → `(x86)`). Primero copia directa; si falla por permisos, copia **con UAC** (`Start-Process -Verb RunAs`). Se intenta activar aunque winget avise (WinRAR ya instalado).
+
+### Office (`OfficePage`)
+- **Online:** `setup.exe` de officecdn + `Configuration.xml` embebido en `constants.ts` (365, 2024, 2021, 2019), carpeta `C:\Office`. **Office 2019 directo** (c2rsetup sin XML). **Office 2016 Pro Plus 32-bit**: ZIP (~720 MB, URL en `constants.ts → OFFICE.OFFICE_2016`), se extrae a `Escritorio\Office2016`; **los enlaces de Mediafire/descarga directa pueden expirar**: pedir el nuevo y actualizar `constants.ts`.
+- **Offline (ISO):** descarga a `C:\OfficeISO`, `Mount-DiskImage`, instala, desmonta.
+- Activar (MAS), reparar rápida/completa, desinstalación total (Office Scrubber).
+
+### Windows (`WindowsPage`)
+- SFC, DISM (check/scan/restore), CHKDSK, Windows Update, **MAS** (`irm https://get.activated.win | iex` elevado) y **Defender Control (Sordum)**: `resources/defender-control/dControl.exe` (+ `.ini`) se empaqueta vía `extraResources`; SOLO abre su GUI como admin. **No usar los exe de línea de comandos de pgkt04/defender-control: le dañaron un Defender a un cliente.** Sordum bloquea descargas automatizadas, por eso el binario va en el repo.
+
+### Red, Utilidades, Desinstalador, Ajustes
+- **Red:** ping/tracert/nslookup contra un destino, ipconfig, flush DNS, ARP. **Utilidades:** herramientas del sistema/red, limpieza de temporales, SFC, enlace a UUP dump (ISOs de Windows).
+- **Desinstalador:** lista apps de los 3 hives del registro (versión, editor, fecha `yyyyMMdd`, tamaño KB, `DisplayIcon`), filtros y orden, **punto de restauración opcional**, desinstalación profunda (MSI/winget/original + limpia carpetas, registro, Run keys, servicios y accesos directos). Iconos por `get-app-icon` (`app.getFileIcon` con caché).
+- **Ajustes (funcionales):** tema claro/oscuro/sistema, diagnóstico automático, menú compacto, registro expandido, «Preguntar dónde guardar».
+
+## 9. Archivos y carpetas que usa la app
+| Qué | Dónde | Notas |
+|---|---|---|
+| Registro de actividad | `%APPDATA%\SamirTechTools\logs\activity-AAAA-MM-DD.log` | Lo crea `append-log` |
+| Office online | `C:\Office` | Se crea sola |
+| Office ISO | `C:\OfficeISO` | Se crea sola |
+| Descargas de «Otras apps» | `C:\ExtraApps` | Se crea sola |
+| Office 2016 (ZIP extraído) | `<Escritorio>\Office2016` | Escritorio real vía `get-path` |
+| Reporte de diagnóstico | `<Escritorio>\Reporte_Diagnostico_AAAA-MM-DD.txt` | |
+| Licencia de WinRAR | `resources/winrar/rarreg.key` → (instalado) `<app>/resources/winrar/` | **No está en Git** |
+
+- **Carpetas automáticas:** las opciones que guardan archivos crean su carpeta solas con el IPC `ensure-dir` (`src/utils/folders.ts → resolveDir`). Por defecto **no preguntan** dónde guardar; con Ajustes → «Preguntar dónde guardar» abren el selector (que ya abre en la carpeta sugerida porque se crea antes).
+- **`rarreg.key` y Git:** está en `.gitignore` porque el repo es público. Se incluye en el instalador desde `resources/winrar/` (`extraResources`). En una PC nueva hay que copiarla a mano antes de compilar. **Decisión del dueño:** acepta que quede dentro de los instaladores publicados en Releases (cualquiera que los descargue puede extraerla); no se sube al repositorio.
+
+## 10. Build y release (cómo se publica)
+**Versionado (semver):** `1.0.1` = solo arreglos · `1.1.0` = funciones nuevas compatibles · `2.0.0` = cambio grande. La versión vive en **tres sitios**: `package.json`, `package-lock.json` (dos líneas al inicio) y `APP_VERSION` en `src/config/constants.ts`.
+
+**Flujo completo (lo que se hizo para v1.1.0):**
 ```powershell
-Invoke-WebRequest -Uri "https://github.com/electron/electron/releases/download/v31.7.7/electron-v31.7.7-win32-x64.zip" -OutFile "$env:TEMP\electron.zip"
-Expand-Archive -Path "$env:TEMP\electron.zip" -DestinationPath "node_modules\electron\dist" -Force
-Set-Content -Path "node_modules\electron\path.txt" -Value "electron.exe" -NoNewline
+git add -A ; git commit -m "..." ; git push                 # 1) código a GitHub
+.\scripts\build-admin.ps1                                    # 2) compila con UAC → release\*.exe + latest.yml
+.\scripts\publish-release.ps1                                # 3) crea la release vX.Y.Z y sube los 3 archivos
+.\scripts\publish-release.ps1 -Replace                       #    (misma versión ya publicada: reemplaza archivos y mueve la etiqueta)
 ```
+- **Por qué admin:** `electron-builder` crea symlinks (winCodeSign) y Windows los permite solo elevado; `signAndEditExecutable` está en `true` para incrustar el icono. Sin admin falla con «Cannot create symbolic link».
+- `publish-release.ps1` **no necesita `gh`**: usa la credencial que Git ya guarda (`git credential fill`) y la API de GitHub; verifica nombre/tamaño/estado de cada archivo y que la etiqueta apunte al HEAD. La descripción sale de `docs/release-notes/vX.Y.Z.md` (UTF-8; **no** pasar texto con tildes desde un `.ps1` sin BOM: PowerShell 5.1 lo corrompe).
+- **`latest.yml` es obligatorio en la release:** el actualizador automático de las apps instaladas lo lee. Si se republica la **misma** versión, las instalaciones que ya tengan esa versión no verán actualización.
+- Los `.exe` no van a Git (`*.exe` ignorado): solo a Releases. `get.ps1` toma el asset `*Portable*.exe` de la última release.
+- **«Sube todo a GitHub» = que los EXE descargables funcionen como quedó en el chat:** commit + push de lo cambiado y, si cambió `src/`, `electron/`, `resources/` o `public/`, compilar y publicar release. Si solo son `*.md`/`docs`, basta `git push`.
+- La app corre como `asInvoker` (**sin admin**, como WinUtil) para que `winget --ignore-security-hash` no falle con «cannot be overridden when running as admin». La elevación se pide solo donde hace falta (`Start-Process -Verb RunAs`: SFC, DISM, desinstalador, clear-ram, Defender, copia de licencia, `winget settings --enable InstallerHashOverride`).
 
-## Diseño (noviembre 2026) — rediseño completo
-- Estilo "pro dark" (Linear/Raycast) con tema claro pulido. Acento índigo (logo ST). Tipografía Inter.
-- Sidebar plegable (232px / 68px) con tarjeta del equipo; registro inferior plegable con última entrada visible.
-- Dashboard: hero con nombre del equipo + 4 indicadores + 6 paneles con skeletons. Instalar/Desinstalador con barra flotante de selección.
-- Se corrigieron: frecuencia CPU (×1000), unidades del reporte .txt (×1024³ y "C::"), modal invisible en tema claro, Ajustes sin función, ventana no arrastrable, restos de marca "M&M".
+## 11. Encoding (IMPORTANTE)
+- Todos los archivos son **UTF-8 sin BOM**. **Excepción:** los `.ps1` de `scripts/` llevan **BOM** (PowerShell 5.1 los lee como ANSI si no).
+- La consola de PowerShell corrompe tildes/ñ al editar con comandos inline: para reemplazos con caracteres especiales usar scripts Node o las herramientas de edición, no PowerShell inline.
 
-## Estado (02/09/2026)
-- App funcional, probada en Windows 11 x64 - dashboard estático 0% background, carga progresiva tier1/tier2, CPU nativo sin PowerShell
-- Instaladores **v1.0.0** actualizados 02/09/2026 en GitHub (Setup ~64.6MB + Portable ~64.4MB, bundle 315KB) — `gh release upload v1.0.0 --clobber` — incluye perf 02/09 (cache 30s-10min, Network 1 PS, polling eliminado, LogContext 300)
-- dControl de Sordum incluido en `resources/defender-control/` (ya no ignorado, se versiona con `git add -f`)
+## 12. Entorno y problemas conocidos
+- **Node:** 18+ requerido, **20 LTS recomendado**. Con Node 26 se compiló bien (v26.12.1), pero se ha visto que su `postinstall` bloquea la descarga de Electron («install scripts blocked»). Si `node_modules/electron/dist` solo tiene `locales`:
+  ```powershell
+  Invoke-WebRequest -Uri "https://github.com/electron/electron/releases/download/v31.7.7/electron-v31.7.7-win32-x64.zip" -OutFile "$env:TEMP\electron.zip"
+  Expand-Archive -Path "$env:TEMP\electron.zip" -DestinationPath "node_modules\electron\dist" -Force
+  Set-Content -Path "node_modules\electron\path.txt" -Value "electron.exe" -NoNewline
+  ```
+- `npm run electron:dev` = `concurrently "vite" "wait-on http://localhost:5173 && electron . --dev"`; el flag `--dev` hace que `main.cjs` cargue `http://localhost:5173` en vez de `dist/index.html`.
+- **Git «dubious ownership»** si la carpeta viene de otro usuario/PC: `git config --global --add safe.directory <ruta>`.
+- Si Git/Node no se reconocen tras instalarlos con winget, reabrir la terminal (PATH).
+- Windows Defender/SmartScreen puede marcar falsos positivos (activación, Defender Control); el ejecutable no está firmado (ver pendientes).
 
-## Pendientes / ideas futuras
-1. Firmar el código (code signing) para evitar SmartScreen
-2. Actualizador automático (electron-updater)
-3. Exportar reporte de diagnóstico a PDF
-4. Verificar VRAM en más equipos (AMD/Intel integrada a veces reporta 0 en el registro)
-5. El enlace de Mediafire de Office 2016 puede expirar — regenerarlo cuando el usuario lo pida
+## 13. Estado actual (21/11/2026)
+- **v1.1.0 publicada.** Instaladores: `Setup-1.1.0.exe` (~66 MB) y `Portable-1.1.0.exe` (~66 MB) + `latest.yml`. Incluye: rediseño completo, logo ST transparente, WinRAR + Activación, OpenCode `@opencode/cli`, carpetas automáticas, Ajustes funcionales y arreglos (reporte al Escritorio real, frecuencia de CPU, unidades del reporte, modal en tema claro).
+- Verificado: `tsc` limpio, build de Vite, app empaquetada arranca y diagnostica con datos reales, las 9 páginas renderizan sin errores en el navegador (con mock). **No verificado en profundidad:** el flujo real de instalar WinRAR + copiar la licencia con UAC, y las instalaciones de Office de extremo a extremo.
+- Historial: v1.0.0 (02/09/2026) = Minimal Pro + logo circular + dControl + asInvoker + fix hash de winget + InstallContext persistente.
+
+## 14. Pendientes / ideas
+1. **Migrar de Electron a Tauri v2** (Rust + WebView2): instalador ~5–10 MB y RAM ~40–90 MB frente a ~66 MB / ~150–300 MB. Esfuerzo estimado 1–2 semanas: la UI React se mantiene; hay que reescribir `main.cjs` (47 IPC; los scripts PowerShell se reutilizan). Lo difícil: progreso en vivo de winget/descargas, iconos del desinstalador (`app.getFileIcon`), actualizador (firma de updates) y la ventana. Requiere Rust + Visual Studio Build Tools (no instalados en la PC del dueño). Hacerlo en una rama aparte.
+2. Firmar el código (code signing) para evitar SmartScreen.
+3. Exportar el reporte de diagnóstico a PDF.
+4. Verificar VRAM en más equipos (AMD/Intel integrada a veces reporta 0 en el registro).
+5. Borrar el código muerto (`BrowsersPage.tsx`, `DriversPage.tsx`, `public/logo.jpg`) y terminar la modularización de `main.cjs` (`electron/handlers/README.md`).
+6. Los enlaces de descarga de Office 2016 / AionUi pueden expirar: regenerar cuando falle.

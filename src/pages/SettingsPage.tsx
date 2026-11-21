@@ -98,7 +98,7 @@ export function SettingsPage() {
 
       {/* Acerca de */}
       <section className="card p-5 flex items-center gap-4 flex-wrap">
-        <img src={appIcon} alt="" className="w-12 h-12 rounded-2xl ring-1 ring-line" />
+        <img src={appIcon} alt="" className="w-12 h-12" draggable={false} />
         <div className="flex-1 min-w-[200px]">
           <div className="flex items-center gap-2">
             <p className="text-[15px] font-semibold text-fg">SamirTech<span className="text-accent-fg">Tools</span></p>

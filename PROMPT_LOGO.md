@@ -1,5 +1,7 @@
 # Prompt para generar logo de SamirTechTools
 
+> **Estado (nov 2026):** el logo actual **no** salió de estos prompts: es un SVG hecho a mano (`public/icon.svg`: cuadrado redondeado índigo→violeta con «ST» blanco, **fondo transparente**). Se regenera `icon.png`/`icon.ico` con `node scripts/build-icons.cjs`. Estos prompts quedan solo como referencia si algún día se quiere explorar otro diseño.
+
 Copia uno de estos prompts en Midjourney, DALL·E, Leonardo, Ideogram o ChatGPT (con generación de imágenes).
 
 ---

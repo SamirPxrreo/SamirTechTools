@@ -1,5 +1,7 @@
 # Backup Diseño Original — 2025-09-02
 
+> **OBSOLETO.** Este diseño fue reemplazado por el rediseño completo de noviembre 2026 (ver `docs/CONTEXTO.md` §6). Los archivos `.bak` mencionados ya no existen; se conserva solo como historia.
+
 **Fecha:** 2025-09-02
 **Motivo:** Antes de aplicar reorganización del menú a 4 grupos + estilo App Linear
 

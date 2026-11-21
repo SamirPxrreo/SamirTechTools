@@ -23,7 +23,7 @@ export function Header({ isAdmin, version, currentPage }: HeaderProps) {
     <header className="drag h-11 shrink-0 z-30 flex items-center justify-between bg-bg/80 backdrop-blur-xl border-b border-line select-none">
       {/* Marca + breadcrumb */}
       <div className="flex items-center gap-3 pl-3.5 min-w-0">
-        <img src={appIcon} alt="" className="w-[22px] h-[22px] rounded-full shrink-0 ring-1 ring-line" draggable={false} />
+        <img src={appIcon} alt="" className="w-6 h-6 shrink-0" draggable={false} />
         <div className="flex items-center gap-2 min-w-0">
           <span className="text-[13px] font-semibold tracking-tight text-fg whitespace-nowrap">
             SamirTech<span className="text-accent-fg">Tools</span>

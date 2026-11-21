@@ -29,9 +29,14 @@ cd SamirTechTools
 # 4. Instala dependencias
 npm install
 
-# 5. Ejecuta la app
+# 5. (Solo si vas a COMPILAR) copia la licencia de WinRAR a resources\winrar\rarreg.key
+#    No está en Git a propósito (el repo es público). Sin ella el instalador sale sin licencia.
+
+# 6. Ejecuta la app
 npm run electron:dev
 ```
+
+> **Atajo con una IA:** abre un chat nuevo, pega el contenido de `PROMPT_IA.md` (o escribe «clona `SamirPxrreo/SamirTechTools`, pregúntame dónde y lee `AGENTS.md` y `docs/CONTEXTO.md`») y la IA tendrá todo el contexto del proyecto.
 
 > Si te sale `Electron failed to install correctly`, es porque el proxy/antivirus bloqueó la descarga. Ejecuta:
 > ```powershell
@@ -91,9 +96,11 @@ Y viceversa: cuando termines en casa haces `add + commit + push`, y al llegar al
 | Subir cambios a GitHub | `git push` |
 | Bajar cambios de la otra PC | `git pull` |
 | Ver historial | `git log --oneline` |
-| **"Sube todo a github" = SUBIR LO NECESARIO PARA QUE LOS EXES TENGAN LO ÚLTIMO DEL CHAT** | `git add/commit/push` de lo cambiado + si cambió `src/`/`electron/`/`resources/` → `npm run electron:build` (admin) + `gh release upload v1.1.0 release\*.exe --clobber` |
+| **"Sube todo a github" = SUBIR LO NECESARIO PARA QUE LOS EXES TENGAN LO ÚLTIMO DEL CHAT** | `git add -A` + `commit` + `push`; si cambió `src/`/`electron/`/`resources/`/`public/` → `.\scripts\build-admin.ps1` (pide aviso de administrador) + `.\scripts\publish-release.ps1` (`-Replace` si esa versión ya existe) |
 
 > **⚠️ "Sube todo a github" = que los EXEs descargables funcionen tal cual se dejó en el chat.** Si solo son `*.md`/`docs`, basta con `git push`. Ver `docs/CONTEXTO.md` > Build y release.
+>
+> **Versión:** `1.0.1` = arreglos pequeños · `1.1.0` = funciones nuevas · `2.0.0` = cambio grande. Se cambia en `package.json`, `package-lock.json` y `src/config/constants.ts`.
 
 ---
 
