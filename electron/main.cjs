@@ -5,6 +5,7 @@ const os = require('os');
 const https = require('https');
 const http = require('http');
 const fs = require('fs');
+const { activateWinrar } = require('./utils/winrar.cjs');
 
 // ========== VALIDACIÓN / SANITIZACIÓN ==========
 function sanitizePath(p) {
@@ -123,14 +124,39 @@ ipcMain.handle('select-directory', async (event, options) => {
   }
 });
 
-// Punto de restauración opcional
+// Punto de restauración opcional (Checkpoint-Computer exige ADMIN: sin elevar da "Acceso denegado")
 ipcMain.handle('create-restore-point', async (event, description) => {
+  const desc = String(description || 'SamirTechTools - Antes de desinstalar').slice(0, 100).replace(/['\r\n]/g, '');
+  const marker = path.join(os.tmpdir(), 'stt-restore-result.txt');
+  const script = path.join(os.tmpdir(), 'stt-restore.ps1');
+  try { fs.unlinkSync(marker); } catch {}
+  const q = (v) => v.replace(/'/g, "''");
+  fs.writeFileSync(script, `
+$ErrorActionPreference = 'Stop'
+try {
+  $r = Checkpoint-Computer -Description '${q(desc)}' -RestorePointType MODIFY_SETTINGS 2>&1 | Out-String
+  [IO.File]::WriteAllText('${q(marker)}', 'OK' + [Environment]::NewLine + $r)
+} catch {
+  [IO.File]::WriteAllText('${q(marker)}', 'ERROR' + [Environment]::NewLine + $_.Exception.Message)
+}
+`, 'utf8');
   try {
-    const desc = String(description || 'SamirTechTools - Antes de desinstalar').slice(0, 100).replace(/'/g, '');
-    const r = await ps(`Checkpoint-Computer -Description '${desc}' -RestorePointType MODIFY_SETTINGS 2>&1 | Out-String`);
-    return { success: r.success || /creado|created/i.test(r.output), output: r.output };
+    await new Promise((resolve) => {
+      execFile('powershell', ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-Command',
+        `Start-Process powershell -Verb RunAs -Wait -WindowStyle Hidden -ArgumentList '-NoProfile','-ExecutionPolicy','Bypass','-File','${script}'`],
+        { timeout: 300000, windowsHide: true }, () => resolve());
+    });
+    let out = '';
+    for (let i = 0; i < 30; i++) {
+      if (fs.existsSync(marker)) { out = fs.readFileSync(marker, 'utf8'); break; }
+      await new Promise(r => setTimeout(r, 1000));
+    }
+    return { success: /^OK/.test(out), output: out.replace(/^OK\r?\n?|^ERROR\r?\n?/, '') || 'Sin respuesta del proceso elevado' };
   } catch (err) {
     return { success: false, output: String(err) };
+  } finally {
+    try { fs.unlinkSync(script); } catch {}
+    try { fs.unlinkSync(marker); } catch {}
   }
 });
 
@@ -685,10 +711,14 @@ $log | Out-File -FilePath '${esc(tmpResult)}' -Encoding UTF8
   try { fs.unlinkSync(tmpResult); } catch {}
 
   try {
-    await ps(`Start-Process powershell -Verb RunAs -Wait -ArgumentList '-NoProfile','-ExecutionPolicy','Bypass','-File','${esc(tmpScript)}'`);
-    // Esperar resultado
+    // El desinstalador elevado puede tardar minutos: esperar de verdad (hasta 30 min) sin el timeout de 60s de ps()
+    await new Promise((resolve) => {
+      execFile('powershell', ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-Command',
+        `Start-Process powershell -Verb RunAs -Wait -ArgumentList '-NoProfile','-ExecutionPolicy','Bypass','-File','${esc(tmpScript)}'`],
+        { timeout: 1800000, windowsHide: true }, () => resolve());
+    });
     let out = '';
-    for (let i = 0; i < 10; i++) {
+    for (let i = 0; i < 60; i++) {
       if (fs.existsSync(tmpResult)) { out = fs.readFileSync(tmpResult, 'utf-8'); break; }
       await new Promise(r => setTimeout(r, 1000));
     }
@@ -825,19 +855,27 @@ if ($oldPkg -match 'opencode-ai@') {
   Write-Host 'Se detecto opencode-ai (v1). Desinstalando para reemplazarlo por @opencode/cli...'
   npm uninstall -g opencode-ai
 }
-npm install -g @opencode/cli
+# npm >= 12 bloquea por defecto los scripts de instalacion y @opencode/cli necesita su postinstall (elige el binario nativo):
+# sin este permiso npm termina "bien" (codigo 0) pero el comando opencode NO funciona. En npm antiguos el flag se ignora.
+npm install -g @opencode/cli --allow-scripts=@opencode/cli
 Write-Host ('npm exit code: ' + $LASTEXITCODE)
 if ($LASTEXITCODE -ne 0) {
   Write-Host '[ERROR] npm no pudo instalar opencode. Revisa la conexion a internet y reintenta.'
   exit 1
 }
-$env:Path = [Environment]::GetEnvironmentVariable('Path','User') + ';' + [Environment]::GetEnvironmentVariable('Path','Machine')
-if (Get-Command opencode -ErrorAction SilentlyContinue) {
-  Write-Host ('OpenCode CLI instalado: ' + (opencode --version))
+$npmPrefix = (npm config get prefix 2>$null | Out-String).Trim()
+$env:Path = [Environment]::GetEnvironmentVariable('Path','User') + ';' + [Environment]::GetEnvironmentVariable('Path','Machine') + ';' + $npmPrefix
+$ocVer = ''
+try { $ocVer = (opencode --version 2>&1 | Out-String).Trim() } catch {}
+if ($LASTEXITCODE -eq 0 -and $ocVer -match '\\d+\\.\\d+') {
+  Write-Host ('OpenCode CLI instalado: ' + $ocVer)
+  Write-Host 'Abre PowerShell en cualquier carpeta y escribe "opencode".'
 } else {
-  Write-Host 'OpenCode CLI instalado. Abre PowerShell en cualquier carpeta y escribe "opencode".'
+  Write-Host ('[ERROR] npm termino bien pero el comando opencode no responde. Salida: ' + $ocVer)
+  exit 1
 }
 Write-Host 'Listo.'
+exit 0
 `;
 
   let fullOut = '';
@@ -855,8 +893,8 @@ Write-Host 'Listo.'
     const t = setTimeout(() => { try { child.kill(); } catch {} resolve({ success: false, output: fullOut + '\nTimeout (15min)' }); }, 900000);
     child.on('close', (code) => {
       clearTimeout(t);
-      const ok = code === 0 || /instalado|listo/i.test(fullOut);
-      resolve({ success: ok, output: fullOut });
+      // El script termina con exit 0 solo si OpenCode responde de verdad; cualquier fallo sale con exit 1
+      resolve({ success: code === 0, output: fullOut });
     });
     child.on('error', (err) => { clearTimeout(t); fullOut += String(err); resolve({ success: false, output: fullOut }); });
   });
@@ -869,43 +907,7 @@ Write-Host 'Listo.'
 const WINRAR_KEY_SRC = app.isPackaged
   ? path.join(process.resourcesPath, 'winrar', 'rarreg.key')
   : path.join(__dirname, '..', 'resources', 'winrar', 'rarreg.key');
-ipcMain.handle('winrar-activate', async () => {
-  const src = WINRAR_KEY_SRC;
-  if (!fs.existsSync(src)) {
-    return { success: false, output: 'La licencia rarreg.key no está incluida en esta copia de la herramienta.\nColócala en: ' + src };
-  }
-
-  // Carpeta de instalación: registro (exe64/exe32) -> Program Files -> Program Files (x86)
-  const dirs = [];
-  try {
-    const r = await ps("$k = Get-ItemProperty 'HKLM:\\SOFTWARE\\WinRAR' -ErrorAction SilentlyContinue; if ($k) { $k.exe64; $k.exe32 }");
-    for (const line of (r.output || '').split(/\r?\n/)) { const l = line.trim(); if (l) dirs.push(path.dirname(l)); }
-  } catch {}
-  dirs.push(path.join(process.env.ProgramFiles || 'C:\\Program Files', 'WinRAR'));
-  dirs.push(path.join(process.env['ProgramFiles(x86)'] || 'C:\\Program Files (x86)', 'WinRAR'));
-  const installDir = dirs.find(d => fs.existsSync(path.join(d, 'WinRAR.exe')));
-  if (!installDir) return { success: false, output: 'No se encontró la carpeta de instalación de WinRAR (¿está instalado?).' };
-
-  const dest = path.join(installDir, 'rarreg.key');
-  const sameFile = () => { try { return fs.existsSync(dest) && fs.statSync(dest).size === fs.statSync(src).size; } catch { return false; } };
-
-  // 1) Intento directo (funciona si la app ya corre como administrador)
-  try { fs.copyFileSync(src, dest); } catch {}
-
-  // 2) Si no se pudo (Program Files exige permisos), copiar con elevación (UAC)
-  if (!sameFile()) {
-    const q = (s) => s.replace(/'/g, "''");
-    const enc = Buffer.from(`Copy-Item -LiteralPath '${q(src)}' -Destination '${q(dest)}' -Force`, 'utf16le').toString('base64');
-    await new Promise((resolve) => {
-      execFile('powershell', ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-Command',
-        `Start-Process powershell -Verb RunAs -Wait -WindowStyle Hidden -ArgumentList '-NoProfile','-ExecutionPolicy','Bypass','-EncodedCommand','${enc}'`],
-        { timeout: 180000, windowsHide: true }, () => resolve());
-    });
-  }
-
-  if (sameFile()) return { success: true, output: `Licencia copiada: ${src}\n→ ${dest}` };
-  return { success: false, output: `No se pudo copiar la licencia a ${installDir}.\nSi cancelaste el aviso de administrador (UAC), vuelve a intentarlo y acepta.` };
-});
+ipcMain.handle('winrar-activate', () => activateWinrar(WINRAR_KEY_SRC));
 
 const wingetChildren = new Map();
 ipcMain.handle('winget-cancel', async (event, wingetId) => {
@@ -1178,105 +1180,8 @@ ipcMain.handle('show-item-in-folder', (event, p) => shell.showItemInFolder(p));
 
 // Download file with progress - ROBUSTO: usa curl.exe -L nativo (Windows 10/11) con fallback a Node https
 // Fix AionUi/MediaFire: detecta HTML de 30-40KB (pagina de error/expire) y lo reporta como error
-function downloadFile(url, destPath, onProgress) {
-  return new Promise(async (resolve, reject) => {
-    try { fs.mkdirSync(path.dirname(destPath), { recursive: true }); } catch {}
-    // Intento 1: curl.exe -L (maneja redirects, cookies, resume, y es el que mejor funciona con MediaFire/descargas grandes)
-    const tryCurl = () => new Promise((res) => {
-      const { spawn } = require('child_process');
-      // curl flags: -L sigue redirects, -o destino, --create-dirs crea carpetas, -A user-agent, --progress-bar para progreso
-      const args = ['-L', '-o', destPath, '--create-dirs', '-A', 'Mozilla/5.0', '--connect-timeout', '30', '--max-time', '600', url];
-      const child = spawn('curl.exe', args, { windowsHide: true });
-      let stderr = '';
-      child.stderr.on('data', (d) => { stderr += d.toString(); });
-      child.on('close', (code) => {
-        if (code === 0 && fs.existsSync(destPath)) {
-          try {
-            const stat = fs.statSync(destPath);
-            // Detectar HTML/archivo corrupto (MediaFire expirado devuelve 34KB HTML con <!DOCTYPE> o archivo <1MB para un .exe que debería pesar >50MB)
-            if (stat.size > 0 && stat.size < 300000) {
-              try {
-                const head = fs.readFileSync(destPath, 'utf-8').slice(0, 2000).toLowerCase();
-                if (head.includes('<!doctype') || head.includes('<html') || head.includes('mediafire') || head.includes('<title>file sharing')) {
-                  try { fs.unlinkSync(destPath); } catch {}
-                  return res({ ok: false, err: 'El link expiro o devolvio pagina HTML (MediaFire). Abre el link en el navegador manualmente. Tamano: ' + stat.size + ' bytes. ' + stderr.slice(-500) });
-                }
-              } catch {}
-            }
-            // Para AionUi/MediaFire: si el .exe pesa <5MB es claramente pagina HTML/error (AionUi pesa ~150MB)
-            if (destPath.toLowerCase().endsWith('.exe') && stat.size > 0 && stat.size < 5 * 1024 * 1024 && /mediafire|aionui/i.test(url + destPath)) {
-              try { fs.unlinkSync(destPath); } catch {}
-              return res({ ok: false, err: 'Archivo demasiado pequeño (' + stat.size + ' bytes) para ser el instalador. El link de MediaFire seguramente expiro. Abre el link en el navegador manualmente.' });
-            }
-            if (stat.size === 0) { try { fs.unlinkSync(destPath); } catch {} return res({ ok: false, err: 'Archivo vacio (0 bytes). ' + stderr.slice(-500) }); }
-            res({ ok: true, size: stat.size });
-          } catch (e) { res({ ok: false, err: String(e) }); }
-        } else {
-          res({ ok: false, err: stderr.slice(-800) || `curl exit code ${code}` });
-        }
-      });
-      child.on('error', (err) => res({ ok: false, err: String(err) }));
-      // Timeout global 10 min
-      setTimeout(() => { try { child.kill(); } catch {} res({ ok: false, err: 'Timeout curl (10min)' }); }, 600000);
-    });
-
-    const curlResult = await tryCurl();
-    if (curlResult.ok) {
-      // Emitir progreso 100% si hay callback
-      try { if (onProgress) onProgress(100, curlResult.size, curlResult.size); } catch {}
-      return resolve({ success: true, size: curlResult.size });
-    }
-    // Si curl fallo pero no fue por HTML (ej: sin curl.exe), intentar fallback Node https como ultimo recurso
-    // Pero si fue HTML de MediaFire, no tiene sentido reintentar https (dara mismo HTML), reportar error directamente
-    if (/pagina HTML|expiro|mediafire/i.test(curlResult.err)) {
-      return reject(new Error(curlResult.err + ' -> Abre el link en el navegador: ' + url));
-    }
-    // Fallback Node https (para entornos sin curl o errores de red puntuales)
-    try {
-      const file = fs.createWriteStream(destPath);
-      const protocol = url.startsWith('https') ? https : http;
-      const request = protocol.get(url, { headers: { 'User-Agent': 'Mozilla/5.0', 'Accept': '*/*' } }, (response) => {
-        if (response.statusCode >= 300 && response.statusCode < 400 && response.headers.location) {
-          file.close();
-          try { fs.unlinkSync(destPath); } catch {}
-          downloadFile(response.headers.location, destPath, onProgress).then(resolve).catch(reject);
-          return;
-        }
-        if (response.statusCode !== 200) {
-          file.close();
-          try { fs.unlinkSync(destPath); } catch {}
-          reject(new Error('HTTP ' + response.statusCode + ' (fallback). Curl error previo: ' + curlResult.err));
-          return;
-        }
-        const totalBytes = parseInt(response.headers['content-length'], 10);
-        let downloadedBytes = 0;
-        response.on('data', (chunk) => {
-          downloadedBytes += chunk.length;
-          if (onProgress && totalBytes) onProgress(Math.round((downloadedBytes / totalBytes) * 100), downloadedBytes, totalBytes);
-        });
-        response.pipe(file);
-        file.on('finish', () => {
-          file.close();
-          // Verificar HTML tambien en fallback
-          try {
-            const stat = fs.statSync(destPath);
-            if (stat.size > 0 && stat.size < 300000) {
-              const head = fs.readFileSync(destPath, 'utf-8').slice(0, 2000).toLowerCase();
-              if (head.includes('<!doctype') || head.includes('<html')) {
-                try { fs.unlinkSync(destPath); } catch {}
-                return reject(new Error('El link devolvio HTML en vez de .exe (link expirado). Abre en navegador: ' + url));
-              }
-            }
-          } catch {}
-          resolve({ success: true, size: downloadedBytes });
-        });
-      });
-      request.on('error', (err) => { file.close(); try { fs.unlinkSync(destPath); } catch {} reject(new Error(String(err) + ' | Curl previo: ' + curlResult.err)); });
-      request.setTimeout(300000, () => { request.destroy(); reject(new Error('Timeout (fallback)')); });
-    } catch (e) { reject(new Error(String(e) + ' | Curl previo: ' + curlResult.err)); }
-  });
-}
-
+// Descargas: soporta archivos de varios GB (sin tope de 10 min), reanuda y progreso real.
+const { downloadFile } = require('./utils/download.cjs');
 // Write text file (UTF-8)
 ipcMain.handle('write-file', async (event, { path, content }) => {
   try {

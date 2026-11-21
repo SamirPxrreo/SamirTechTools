@@ -43,7 +43,7 @@ const extraApps: ExtraApp[] = [
     name: 'WinRAR + Activación',
     description: 'Instala WinRAR vía WinGet y copia la licencia rarreg.key a su carpeta de instalación (Windows pedirá permiso de administrador).',
     type: 'winrar',
-    url: 'winget:RARLAB.WinRAR',
+    url: 'winget:RARLab.WinRAR', // winget distingue mayúsculas: el ID real es RARLab.WinRAR
     fileName: '',
     website: 'https://www.win-rar.com/',
     accentColor: 'orange',
@@ -124,7 +124,7 @@ export function ExtraAppsPage() {
           ? `Se verificará/instalará Node.js si es necesario (vía WinGet) y luego se ejecutará en terminal:\nSet-ExecutionPolicy Bypass -Scope Process\nnpm install -g @opencode/cli\n\nSi tienes instalado el paquete antiguo (opencode-ai), se reemplazará.`
           : `Se ejecutará en terminal:\n${app.commands!.join('\n')}`
         : app.type === 'winrar'
-        ? 'Se instalará WinRAR vía WinGet (RARLAB.WinRAR) y después se copiará la licencia rarreg.key (incluida en esta herramienta) a su carpeta de instalación.\n\nDestino: carpeta de WinRAR (normalmente C:\\Program Files\\WinRAR)\n\nWindows pedirá permiso de administrador (UAC) para copiar el archivo.'
+        ? 'Se instalará WinRAR vía WinGet (RARLab.WinRAR) y después se copiará la licencia rarreg.key (incluida en esta herramienta) a su carpeta de instalación.\n\nDestino: carpeta de WinRAR (normalmente C:\\Program Files\\WinRAR)\n\nWindows pedirá permiso de administrador (UAC) para copiar el archivo.'
         : (app.url ?? '').startsWith('winget:') ? `Se instalará vía WinGet: ${(app.url ?? '').replace('winget:', '')}` : `Se descargará desde:\n${app.url}\n\n${askLocation ? 'Te preguntaremos dónde guardarlo.' : 'Se guardará en C:\\ExtraApps (la carpeta se crea sola si no existe).'}`,
       onConfirm: async () => {
         closeConfirm();
@@ -141,8 +141,9 @@ export function ExtraAppsPage() {
             setOutput(prev => prev + (r.output || ''));
             addLog('Extra Apps', app.name, 'Comandos ejecutados', 'success');
           } else if (app.type === 'winrar') {
-            addLog('Extra Apps', app.name, 'winget install RARLAB.WinRAR', 'info');
-            const r = await window.electronAPI.wingetInstall('RARLAB.WinRAR');
+            const wingetId = app.url!.replace('winget:', '');
+            addLog('Extra Apps', app.name, `winget install ${wingetId}`, 'info');
+            const r = await window.electronAPI.wingetInstall(wingetId);
             setOutput(r.output || '');
             addLog('Extra Apps', app.name, r.success ? 'WinRAR instalado' : 'winget terminó con aviso (¿ya estaba instalado?)', r.success ? 'success' : 'warning');
             // Se intenta activar aunque winget avise: si WinRAR ya estaba instalado, solo falta la licencia

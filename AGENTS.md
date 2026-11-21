@@ -16,6 +16,7 @@ App de escritorio Windows (Electron 31 + React 18 + TypeScript + Vite + Tailwind
 5. Las rutas/URLs de la UI pasan por `sanitizePath`/`isValidUrl`/`isValidWingetId`; los IPC privilegiados fijan sus propias rutas.
 6. Archivos **UTF-8 sin BOM** (los `.ps1` de `scripts/` llevan BOM). No editar tildes con PowerShell inline.
 7. Opciones que guardan archivos: crear su carpeta con `resolveDir` / `ensure-dir`, no pedir al usuario que la cree.
+8. **IDs de winget distinguen mayúsculas** (`-e`): verifica con `winget show --id <ID> -e --source winget` antes de usarlos. Prueba las funciones de verdad (no solo `tsc`): la lógica sin Electron se puede probar con `node` (ver `electron/utils/winrar.cjs`).
 
 ## Publicar («sube todo a GitHub»)
 ```powershell

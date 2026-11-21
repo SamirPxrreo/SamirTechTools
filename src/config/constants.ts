@@ -86,12 +86,14 @@ export const OFFICE = {
     fileName: 'Office2019Setup.exe',
   },
 
-  // ISOs offline (descarga directa desde Microsoft)
+  // ISOs/imagenes offline reales (~4-5 GB) desde el CDN de Microsoft (verificadas por HEAD en nov 2026).
+  // OJO: las URLs c2r/download.aspx NO son ISO: devuelven un arrancador de ~7 MB que solo funciona online.
+  // El 2019 solo existe en es-es y en-US (es-mx da HTTP 400), por eso se indica en el nombre.
   OFFLINE_VERSIONS: [
-    { id: '365', name: 'Microsoft 365 Apps', url: 'https://c2rsetup.officeapps.live.com/c2r/download.aspx?ProductreleaseID=O365ProPlusRetail&platform=x64&language=es-mx&version=O16GA' },
-    { id: '2024', name: 'Office LTSC 2024 Plus', url: 'https://c2rsetup.officeapps.live.com/c2r/download.aspx?ProductreleaseID=ProPlus2024Retail&platform=x64&language=es-mx&version=O16GA' },
-    { id: '2021', name: 'Office LTSC 2021 Plus', url: 'https://c2rsetup.officeapps.live.com/c2r/download.aspx?ProductreleaseID=ProPlus2021Retail&platform=x64&language=es-mx&version=O16GA' },
-    { id: '2019', name: 'Office 2019 Plus', url: 'https://officecdn.microsoft.com/db/492350f6-3a01-4f97-b9c0-c7c6ddf67d60/media/ProfessionalPlus2019.img' },
+    { id: '365', name: 'Microsoft 365 Apps', url: 'https://officecdn.microsoft.com/db/492350f6-3a01-4f97-b9c0-c7c6ddf67d60/media/es-mx/O365ProPlusRetail.img' },
+    { id: '2024', name: 'Office LTSC 2024 Plus', url: 'https://officecdn.microsoft.com/db/492350f6-3a01-4f97-b9c0-c7c6ddf67d60/media/es-mx/ProPlus2024Retail.img' },
+    { id: '2021', name: 'Office LTSC 2021 Plus', url: 'https://officecdn.microsoft.com/db/492350f6-3a01-4f97-b9c0-c7c6ddf67d60/media/es-mx/ProPlus2021Retail.img' },
+    { id: '2019', name: 'Office 2019 Pro Plus (es-es)', url: 'https://officecdn.microsoft.com/db/492350f6-3a01-4f97-b9c0-c7c6ddf67d60/media/es-es/ProPlus2019Retail.img' },
   ] as const,
 } as const;
 

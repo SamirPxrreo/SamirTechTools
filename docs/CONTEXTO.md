@@ -44,7 +44,7 @@ SamirTechTools/
 ├── electron/
 │   ├── main.cjs              # Proceso principal: TODOS los IPC (≈1440 líneas)
 │   ├── preload.cjs           # contextBridge → window.electronAPI
-│   ├── utils/ps.cjs · validation.cjs   # Helpers ya extraídos (el resto sigue inline en main.cjs)
+│   ├── utils/ps.cjs · validation.cjs · winrar.cjs · download.cjs   # Helpers ya extraídos (el resto sigue inline en main.cjs)
 │   └── handlers/README.md    # Plan de modularización (sin ejecutar)
 ├── src/
 │   ├── main.tsx · App.tsx    # Entrada y layout (Header + Sidebar + página + LogPanel)
@@ -105,12 +105,12 @@ SamirTechTools/
 
 ### Otras apps (`ExtraAppsPage`)
 - Google Chrome (MSI offline), **OpenCode CLI**, **WinRAR + Activación**, JO-PDF, Obsidian, AB Download Manager, AionUi 2.1.44. Las «Descarga» van a `C:\ExtraApps` y se abren como administrador.
-- **OpenCode (CLI)** — IPC `install-opencode`: Node.js LTS por winget (si falta) → `Set-ExecutionPolicy` (RemoteSigned usuario + Bypass proceso) → `npm install -g @opencode/cli`. Es el paquete **oficial v2** según opencode.ai/docs; el antiguo `opencode-ai` (v1) comparte el comando `opencode`, por eso se desinstala antes si existe (si no, npm da EEXIST).
-- **WinRAR + Activación** — `winget RARLAB.WinRAR` y luego IPC `winrar-activate`: copia `rarreg.key` a la carpeta de WinRAR (registro `HKLM\SOFTWARE\WinRAR` → `Program Files\WinRAR` → `(x86)`). Primero copia directa; si falla por permisos, copia **con UAC** (`Start-Process -Verb RunAs`). Se intenta activar aunque winget avise (WinRAR ya instalado).
+- **OpenCode (CLI)** — IPC `install-opencode`: Node.js LTS por winget (si falta) → `Set-ExecutionPolicy` (RemoteSigned usuario + Bypass proceso) → `npm install -g @opencode/cli --allow-scripts=@opencode/cli`. Es el paquete **oficial v2** según opencode.ai/docs; el antiguo `opencode-ai` (v1) comparte el comando `opencode`, por eso se desinstala antes si existe (si no, npm da EEXIST). **npm >= 12 bloquea el `postinstall` de `@opencode/cli` sin `--allow-scripts`**: npm devuelve código 0 pero `opencode` queda roto; el script ejecuta `opencode --version` y falla si no responde (verificado en npm 12.2.2).
+- **WinRAR + Activación** — `winget install RARLab.WinRAR` y luego IPC `winrar-activate` (lógica en `electron/utils/winrar.cjs`, probable con `node` sin Electron): busca la carpeta de WinRAR (registro `HKLM\SOFTWARE\WinRAR` → `Program Files\WinRAR` → `(x86)`; en WinRAR 7.23 el registro no trae `exe64`, funciona el respaldo de Program Files) y copia `rarreg.key`. Primero copia directa; si falla por permisos, copia **con UAC** (`Start-Process -Verb RunAs`); verifica por **hash SHA-256**. Se intenta activar aunque winget avise (WinRAR ya instalado). **El ID de winget es `RARLab.WinRAR`** (con `-e` winget distingue mayúsculas: `RARLAB.WinRAR` da «No package found»).
 
 ### Office (`OfficePage`)
 - **Online:** `setup.exe` de officecdn + `Configuration.xml` embebido en `constants.ts` (365, 2024, 2021, 2019), carpeta `C:\Office`. **Office 2019 directo** (c2rsetup sin XML). **Office 2016 Pro Plus 32-bit**: ZIP (~720 MB, URL en `constants.ts → OFFICE.OFFICE_2016`), se extrae a `Escritorio\Office2016`; **los enlaces de Mediafire/descarga directa pueden expirar**: pedir el nuevo y actualizar `constants.ts`.
-- **Offline (ISO):** descarga a `C:\OfficeISO`, `Mount-DiskImage`, instala, desmonta.
+- **Offline (ISO):** descarga a `C:\OfficeISO`, `Mount-DiskImage`, instala, desmonta. Las imágenes reales (~4-5 GB) están en `officecdn.microsoft.com/.../media/<idioma>/<Producto>.img` (es-mx para 365/2024/2021; 2019 solo es-es). Las antiguas URLs `c2r/download.aspx` devolvían un arrancador de 7 MB **solo online** y la de 2019 daba HTTP 400 (ambas corregidas en nov 2026).
 - Activar (MAS), reparar rápida/completa, desinstalación total (Office Scrubber).
 
 ### Windows (`WindowsPage`)
@@ -118,7 +118,7 @@ SamirTechTools/
 
 ### Red, Utilidades, Desinstalador, Ajustes
 - **Red:** ping/tracert/nslookup contra un destino, ipconfig, flush DNS, ARP. **Utilidades:** herramientas del sistema/red, limpieza de temporales, SFC, enlace a UUP dump (ISOs de Windows).
-- **Desinstalador:** lista apps de los 3 hives del registro (versión, editor, fecha `yyyyMMdd`, tamaño KB, `DisplayIcon`), filtros y orden, **punto de restauración opcional**, desinstalación profunda (MSI/winget/original + limpia carpetas, registro, Run keys, servicios y accesos directos). Iconos por `get-app-icon` (`app.getFileIcon` con caché).
+- **Desinstalador:** lista apps de los 3 hives del registro (versión, editor, fecha `yyyyMMdd`, tamaño KB, `DisplayIcon`), filtros y orden, **punto de restauración opcional**, desinstalación profunda (MSI/winget/original + limpia carpetas, registro, Run keys, servicios y accesos directos). Iconos por `get-app-icon` (`app.getFileIcon` con caché). El punto de restauración se crea **elevado** (IPC `create-restore-point` con `Start-Process -Verb RunAs` + archivo marcador: sin admin `Checkpoint-Computer` da «Acceso denegado»; verificado OK); el desinstalador elevado se espera hasta 30 min.
 - **Ajustes (funcionales):** tema claro/oscuro/sistema, diagnóstico automático, menú compacto, registro expandido, «Preguntar dónde guardar».
 
 ## 9. Archivos y carpetas que usa la app
@@ -164,13 +164,15 @@ git add -A ; git commit -m "..." ; git push                 # 1) código a GitHu
   Set-Content -Path "node_modules\electron\path.txt" -Value "electron.exe" -NoNewline
   ```
 - `npm run electron:dev` = `concurrently "vite" "wait-on http://localhost:5173 && electron . --dev"`; el flag `--dev` hace que `main.cjs` cargue `http://localhost:5173` en vez de `dist/index.html`.
+- **Descargas** (`utils/download.cjs`): sin tope de 10 min (antes las ISOs de 5 GB se cortaban), reanuda con `curl -C -` hasta 3 intentos, progreso real (leyendo el tamaño del archivo), comprueba espacio libre y rechaza páginas HTML (links expirados). Probado: descarga, reanudación y rechazo de HTML.
+- **IDs de winget: distinguen mayúsculas** con `-e` (exact). Antes de añadir/cambiar uno, comprobar: `winget show --id <ID> -e --source winget` (debe decir «Found …»). Un ID mal escrito da «No package found matching input criteria». El 21/11/2026 se auditaron los 234 IDs de `src/data/apps.ts` contra winget (todos OK tras corregir AnyDesk → `AnyDesk.AnyDesk` y PDF24 → `geeksoftwareGmbH.PDF24Creator`); los de `msstore:` no se auditaron. Conviene repetir la auditoría de vez en cuando: winget retira/renombra paquetes.
 - **Git «dubious ownership»** si la carpeta viene de otro usuario/PC: `git config --global --add safe.directory <ruta>`.
 - Si Git/Node no se reconocen tras instalarlos con winget, reabrir la terminal (PATH).
 - Windows Defender/SmartScreen puede marcar falsos positivos (activación, Defender Control); el ejecutable no está firmado (ver pendientes).
 
 ## 13. Estado actual (21/11/2026)
 - **v1.1.0 publicada.** Instaladores: `Setup-1.1.0.exe` (~66 MB) y `Portable-1.1.0.exe` (~66 MB) + `latest.yml`. Incluye: rediseño completo, logo ST transparente, WinRAR + Activación, OpenCode `@opencode/cli`, carpetas automáticas, Ajustes funcionales y arreglos (reporte al Escritorio real, frecuencia de CPU, unidades del reporte, modal en tema claro).
-- Verificado: `tsc` limpio, build de Vite, app empaquetada arranca y diagnostica con datos reales, las 9 páginas renderizan sin errores en el navegador (con mock). **No verificado en profundidad:** el flujo real de instalar WinRAR + copiar la licencia con UAC, y las instalaciones de Office de extremo a extremo.
+- Verificado: `tsc` limpio, build de Vite, app empaquetada arranca y diagnostica con datos reales, las 9 páginas renderizan sin errores en el navegador (con mock). **Probado de extremo a extremo (21/11/2026):** WinRAR + Activación (winget `RARLab.WinRAR` → copia de licencia con UAC a `C:\Program Files\WinRAR`, hash idéntico). Su primera versión falló por el ID con mayúsculas incorrectas. **No verificado en profundidad:** las instalaciones de Office de extremo a extremo.
 - Historial: v1.0.0 (02/09/2026) = Minimal Pro + logo circular + dControl + asInvoker + fix hash de winget + InstallContext persistente.
 
 ## 14. Pendientes / ideas
